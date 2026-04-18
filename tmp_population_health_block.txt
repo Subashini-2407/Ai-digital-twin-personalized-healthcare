@@ -1,0 +1,368 @@
+# ==================== POPULATION HEALTH ====================
+    elif selected == "Population Health":
+        st.markdown("## 👥 Population Health Intelligence Hub")
+        
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%; 
+                    padding: 2rem; border-radius: 20px; margin-bottom: 2rem; color: white;'>
+            <h2 style='margin:0;'>🌍 Population Health Intelligence Hub</h2>
+            <p style='margin:0.5rem 0 0 0; opacity:0.9;'>
+                Analyze population health trends, compare your metrics, and get data-driven public health insights.
+                Powered by NHANES (15,560) and Framingham (5,209) datasets.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if nhanes is None or framingham is None:
+            st.warning("⚠️ Population data not available. Using synthetic data for demonstration.")
+            nhanes, framingham = create_synthetic_data()
+        
+        # ==================== QUICK FILTERS ====================
+        with st.container():
+            st.markdown("### 🔍 Filter Population Data")
+            col_f1, col_f2, col_f3 = st.columns(3)
+            
+            with col_f1:
+                age_min, age_max = st.slider("Age Range", 20, 80, (20, 80), key="pop_age_filter")
+            
+            with col_f2:
+                gender_filter = st.multiselect("Gender", ["Male", "Female"], default=["Male", "Female"], key="pop_gender_filter")
+            
+            with col_f3:
+                bmi_filter = st.select_slider("BMI Category", 
+                                            options=["All", "Underweight (<18.5)", "Normal (18.5-24.9)", 
+                                                    "Overweight (25-29.9)", "Obese (≥30)"],
+                                            value="All", key="pop_bmi_filter")
+        
+        # Apply filters
+        filtered_nhanes = nhanes[(nhanes['RIDAGEYR'] >= age_min) & (nhanes['RIDAGEYR'] <= age_max)]
+        
+        if "Male" not in gender_filter:
+            filtered_nhanes = filtered_nhanes[filtered_nhanes['RIAGENDR'] != 1]
+        if "Female" not in gender_filter:
+            filtered_nhanes = filtered_nhanes[filtered_nhanes['RIAGENDR'] != 2]
+        
+        if bmi_filter != "All":
+            if bmi_filter == "Underweight (<18.5)":
+                filtered_nhanes = filtered_nhanes[filtered_nhanes['BMXBMI'] < 18.5]
+            elif bmi_filter == "Normal (18.5-24.9)":
+                filtered_nhanes = filtered_nhanes[(filtered_nhanes['BMXBMI'] >= 18.5) & (filtered_nhanes['BMXBMI'] < 25)]
+            elif bmi_filter == "Overweight (25-29.9)":
+                filtered_nhanes = filtered_nhanes[(filtered_nhanes['BMXBMI'] >= 25) & (filtered_nhanes['BMXBMI'] < 30)]
+            elif bmi_filter == "Obese (≥30)":
+                filtered_nhanes = filtered_nhanes[filtered_nhanes['BMXBMI'] >= 30]
+        
+        # ==================== POPULATION METRICS ====================
+        st.markdown("### 📊 Population Metrics")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        with col_m1:
+            st.metric("📊 Population Size", f"{len(filtered_nhanes):,}", 
+                     delta=f"{len(filtered_nhanes)/len(nhanes)*100:.1f}% of total")
+        
+        with col_m2:
+            st.metric("📈 Average Age", f"{filtered_nhanes['RIDAGEYR'].mean():.1f} years")
+        
+        with col_m3:
+            st.metric("⚖️ Average BMI", f"{filtered_nhanes['BMXBMI'].mean():.1f}")
+        
+        with col_m4:
+            smoker_rate = (filtered_nhanes['SMQ856'] == 1).mean() * 100
+            st.metric("🚬 Smoking Rate", f"{smoker_rate:.1f}%")
+        
+        st.markdown("---")
+        
+        # ==================== YOUR HEALTH COMPARISON ====================
+        st.markdown("### 🎯 Your Health vs. Population")
+        
+        user_history = db.get_user_history(user_id, limit=1)
+        
+        if user_history:
+            last_pred = user_history[0]
+            user_age = last_pred.get('age', 45)
+            user_bmi = last_pred.get('bmi', 25.0)
+            user_bp = last_pred.get('bp', 120)
+            user_risk = last_pred['risk_score'] * 100
+            
+            similar_group = filtered_nhanes[(filtered_nhanes['RIDAGEYR'] >= user_age-5) & 
+                                           (filtered_nhanes['RIDAGEYR'] <= user_age+5)]
+            pop_bmi = similar_group['BMXBMI'].mean() if len(similar_group) > 0 else filtered_nhanes['BMXBMI'].mean()
+            pop_bp = similar_group['BPXOSY1'].mean() if len(similar_group) > 0 else filtered_nhanes['BPXOSY1'].mean()
+            
+            col_c1, col_c2, col_c3 = st.columns(3)
+            
+            with col_c1:
+                if user_risk < 15:
+                    st.success(f"✅ Your risk ({user_risk:.1f}%) is LOWER than average (15%)")
+                elif user_risk > 15:
+                    st.warning(f"⚠️ Your risk ({user_risk:.1f}%) is HIGHER than average (15%)")
+                else:
+                    st.info(f"➡️ Your risk ({user_risk:.1f}%) matches the average")
+            
+            with col_c2:
+                if user_bmi < pop_bmi:
+                    st.success(f"✅ Your BMI ({user_bmi:.1f}) is LOWER than similar age group ({pop_bmi:.1f})")
+                elif user_bmi > pop_bmi:
+                    st.warning(f"⚠️ Your BMI ({user_bmi:.1f}) is HIGHER than similar age group ({pop_bmi:.1f})")
+                else:
+                    st.info(f"➡️ Your BMI matches similar age group")
+            
+            with col_c3:
+                if user_bp < pop_bp:
+                    st.success(f"✅ Your BP ({user_bp:.0f}) is LOWER than similar age group ({pop_bp:.0f})")
+                elif user_bp > pop_bp:
+                    st.warning(f"⚠️ Your BP ({user_bp:.0f}) is HIGHER than similar age group ({pop_bp:.0f})")
+                else:
+                    st.info(f"➡️ Your BP matches similar age group")
+        else:
+            st.info("👋 Complete a risk assessment to see how you compare with the population!")
+        
+        st.markdown("---")
+        
+        # ==================== INTERACTIVE RISK EXPLORER ====================
+        st.markdown("### 🔬 Interactive Risk Factor Explorer")
+        
+        col_e1, col_e2 = st.columns(2)
+        
+        with col_e1:
+            risk_factor = st.selectbox(
+                "Select Risk Factor to Explore",
+                ["BMI", "Blood Pressure", "Smoking", "Age", "Cholesterol"]
+            )
+        
+        with col_e2:
+            compare_by = st.selectbox(
+                "Compare By",
+                ["Age Group", "Gender", "BMI Category"]
+            )
+        
+        # Generate dynamic insights based on selections
+        if risk_factor == "BMI":
+            st.info("💡 **Insight:** Higher BMI significantly increases risk of cardiovascular disease, diabetes, and hypertension.")
+            
+            # BMI distribution
+            fig_bmi = px.histogram(
+                filtered_nhanes, x='BMXBMI', nbins=40,
+                title="BMI Distribution in Selected Population",
+                labels={'BMXBMI': 'BMI (kg/m²)', 'count': 'Number of People'},
+                color_discrete_sequence=['#1E88E5']
+            )
+            fig_bmi.add_vline(x=18.5, line_dash="dash", line_color="green", annotation_text="Underweight")
+            fig_bmi.add_vline(x=25, line_dash="dash", line_color="orange", annotation_text="Overweight")
+            fig_bmi.add_vline(x=30, line_dash="dash", line_color="red", annotation_text="Obese")
+            fig_bmi.update_layout(height=400)
+            st.plotly_chart(fig_bmi, use_container_width=True)
+            
+            # BMI by category
+            bmi_cats = pd.cut(filtered_nhanes['BMXBMI'], bins=[0, 18.5, 25, 30, 100],
+                             labels=['Underweight', 'Normal', 'Overweight', 'Obese'])
+            bmi_counts = bmi_cats.value_counts()
+            
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                st.dataframe(pd.DataFrame({
+                    'Category': bmi_counts.index,
+                    'Count': bmi_counts.values,
+                    'Percentage': (bmi_counts.values / len(filtered_nhanes) * 100).round(1)
+                }), use_container_width=True)
+            
+            with col_b2:
+                fig_bmi_pie = px.pie(values=bmi_counts.values, names=bmi_counts.index,
+                                     title="BMI Categories Distribution",
+                                     color_discrete_sequence=['#1E88E5', '#43A047', '#FB8C00', '#E53935'])
+                st.plotly_chart(fig_bmi_pie, use_container_width=True)
+
+        elif risk_factor == "Blood Pressure":
+            st.info("💡 **Insight:** High blood pressure (≥140 mmHg) is a leading cause of heart disease and stroke.")
+            
+            fig_bp = px.histogram(
+                filtered_nhanes, x='BPXOSY1', nbins=30,
+                title="Blood Pressure Distribution",
+                labels={'BPXOSY1': 'Systolic BP (mmHg)', 'count': 'Number of People'},
+                color_discrete_sequence=['#E53935']
+            )
+            fig_bp.add_vline(x=120, line_dash="dash", line_color="green", annotation_text="Normal")
+            fig_bp.add_vline(x=140, line_dash="dash", line_color="orange", annotation_text="Elevated")
+            fig_bp.update_layout(height=400)
+            st.plotly_chart(fig_bp, use_container_width=True)
+            
+            # BP categories
+            bp_cats = pd.cut(filtered_nhanes['BPXOSY1'], bins=[0, 120, 140, 300],
+                            labels=['Normal (<120)', 'Elevated (120-139)', 'High (≥140)'])
+            bp_counts = bp_cats.value_counts()
+            
+            st.dataframe(pd.DataFrame({
+                'Category': bp_counts.index,
+                'Count': bp_counts.values,
+                'Percentage': (bp_counts.values / len(filtered_nhanes) * 100).round(1)
+            }), use_container_width=True)
+
+        elif risk_factor == "Smoking":
+            st.info("💡 **Insight:** Smoking is the single most preventable cause of disease and death.")
+            
+            smoker_count = (filtered_nhanes['SMQ856'] == 1).sum()
+            non_smoker_count = (filtered_nhanes['SMQ856'] == 2).sum()
+            
+            col_s1, col_s2 = st.columns(2)
+            
+            with col_s1:
+                fig_smoke = px.pie(
+                    values=[smoker_count, non_smoker_count],
+                    names=['Smokers', 'Non-Smokers'],
+                    title="Smoking Status Distribution",
+                    color_discrete_sequence=['#E53935', '#43A047'],
+                    hole=0.4
+                )
+                fig_smoke.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig_smoke, use_container_width=True)
+            
+            with col_s2:
+                st.markdown(f"""
+                <div style='background: #f8f9fa; padding: 1.5rem; border-radius: 15px;'>
+                    <h4 style='margin:0;'>📊 Summary</h4>
+                    <p><strong>Total Population:</strong> {len(filtered_nhanes):,}</p>
+                    <p><strong>Current Smokers:</strong> {smoker_count:,} ({smoker_count/len(filtered_nhanes)*100:.1f}%)</p>
+                    <p><strong>Non-Smokers:</strong> {non_smoker_count:,} ({non_smoker_count/len(filtered_nhanes)*100:.1f}%)</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        
+        # ==================== COMPARATIVE ANALYSIS ====================
+        st.markdown("### 📊 Comparative Analysis")
+        
+        filtered_nhanes['age_group'] = pd.cut(filtered_nhanes['RIDAGEYR'], 
+                                             bins=[20, 30, 40, 50, 60, 70, 80],
+                                             labels=['20-30', '30-40', '40-50', '50-60', '60-70', '70-80'])
+        
+        age_analysis = filtered_nhanes.groupby('age_group').agg({
+            'BMXBMI': 'mean',
+            'BPXOSY1': 'mean',
+            'SMQ856': lambda x: (x == 1).mean() * 100
+        }).round(1).reset_index()
+        
+        age_analysis.columns = ['Age Group', 'Avg BMI', 'Avg BP', 'Smoking Rate (%)']
+        
+        st.dataframe(age_analysis, use_container_width=True)
+        
+        male_data = filtered_nhanes[filtered_nhanes['RIAGENDR'] == 1]
+        female_data = filtered_nhanes[filtered_nhanes['RIAGENDR'] == 2]
+        
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            gender_comp = pd.DataFrame({
+                'Metric': ['Average BMI', 'Average BP', 'Smoking Rate %', 'Obesity Rate %'],
+                'Male': [
+                    male_data['BMXBMI'].mean(),
+                    male_data['BPXOSY1'].mean(),
+                    (male_data['SMQ856'] == 1).mean() * 100,
+                    (male_data['BMXBMI'] > 30).mean() * 100
+                ],
+                'Female': [
+                    female_data['BMXBMI'].mean(),
+                    female_data['BPXOSY1'].mean(),
+                    (female_data['SMQ856'] == 1).mean() * 100,
+                    (female_data['BMXBMI'] > 30).mean() * 100
+                ]
+            }).round(1)
+            
+            st.dataframe(gender_comp, use_container_width=True)
+        
+        with col_g2:
+            fig_gender = go.Figure(data=[
+                go.Bar(name='Male', x=gender_comp['Metric'], y=gender_comp['Male'],
+                      marker_color='#1E88E5', text=gender_comp['Male']),
+                go.Bar(name='Female', x=gender_comp['Metric'], y=gender_comp['Female'],
+                      marker_color='#FFA000', text=gender_comp['Female'])
+            ])
+            fig_gender.update_layout(title="Health Metrics by Gender", barmode='group')
+            fig_gender.update_traces(textposition='outside')
+            st.plotly_chart(fig_gender, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # ==================== PUBLIC HEALTH ALERTS ====================
+        st.markdown("### 🚨 Public Health Alerts")
+        
+        alerts = []
+        
+        smoker_rate_alert = (filtered_nhanes['SMQ856'] == 1).mean() * 100
+        if smoker_rate_alert > 20:
+            alerts.append({
+                'severity': '🔴 High',
+                'title': 'High Smoking Prevalence',
+                'message': f"{smoker_rate_alert:.1f}% of this population smokes.",
+                'action': 'Implement targeted smoking cessation programs'
+            })
+        
+        obesity_rate_alert = (filtered_nhanes['BMXBMI'] > 30).mean() * 100
+        if obesity_rate_alert > 30:
+            alerts.append({
+                'severity': '🔴 High',
+                'title': 'Obesity Epidemic',
+                'message': f"{obesity_rate_alert:.1f}% are obese.",
+                'action': 'Launch community wellness initiatives'
+            })
+        
+        hypertension_rate = (filtered_nhanes['BPXOSY1'] > 140).mean() * 100
+        if hypertension_rate > 25:
+            alerts.append({
+                'severity': '🟡 Moderate',
+                'title': 'High Blood Pressure Burden',
+                'message': f"{hypertension_rate:.1f}% have elevated BP.",
+                'action': 'Expand BP screening programs'
+            })
+        
+        if alerts:
+            for alert in alerts:
+                st.markdown(f"""
+                <div style='background: white; padding: 1rem; border-radius: 10px; 
+                            margin-bottom: 0.8rem; border-left: 5px solid {'#E53935' if '🔴' in alert['severity'] else '#FB8C00'};
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>
+                    <div style='display: flex; justify-content: space-between; align-items: center;'>
+                        <h4 style='margin:0;'>{alert['title']}</h4>
+                        <span style='color: {'#E53935' if '🔴' in alert['severity'] else '#FB8C00'}; font-weight: bold;'>{alert['severity']}</span>
+                    </div>
+                    <p style='margin:0.5rem 0;'>{alert['message']}</p>
+                    <p style='margin:0; color: #1E88E5;'><strong>💡 Recommendation:</strong> {alert['action']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.success("✅ No major public health alerts for this population segment.")
+        
+        st.markdown("---")
+        
+        # ==================== EXPORT REPORT ====================
+        st.markdown("### 📥 Export Population Report")
+        
+        col_r1, col_r2 = st.columns([3, 1])
+        
+        with col_r1:
+            report_format = st.selectbox("Select Report Format", 
+                                        ["Summary Statistics", "Risk Factor Analysis", "Demographic Profile"])
+        
+        with col_r2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("📄 Generate Report", use_container_width=True, key="pop_report_btn"):
+                st.success("✅ Report generated successfully! (Download feature coming soon)")
+                
+                with st.expander("📋 Report Preview", expanded=True):
+                    preview_data = {
+                        'Metric': ['Population Size', 'Average Age', 'Average BMI', 'Smoking Rate', 'Obesity Rate', 'Hypertension Rate'],
+                        'Value': [
+                            f"{len(filtered_nhanes):,}",
+                            f"{filtered_nhanes['RIDAGEYR'].mean():.1f} years",
+                            f"{filtered_nhanes['BMXBMI'].mean():.1f}",
+                            f"{(filtered_nhanes['SMQ856']==1).mean()*100:.1f}%",
+                            f"{(filtered_nhanes['BMXBMI']>30).mean()*100:.1f}%",
+                            f"{(filtered_nhanes['BPXOSY1']>140).mean()*100:.1f}%"
+                        ]
+                    }
+                    st.dataframe(pd.DataFrame(preview_data), use_container_width=True)
+"""
+
+# perform replacement
+new_text = text[:start] + new_block + text[end:]
+path.write_text(new_text, encoding='utf-8')
+print('Replaced block')

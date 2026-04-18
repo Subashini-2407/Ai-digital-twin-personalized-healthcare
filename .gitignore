@@ -1,0 +1,37 @@
+﻿# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+.venv310
+*.venv/
+**/.venv/
+**/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+**/__pycache__/
+**/*.pyc
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+users.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+google_credentials.json
+src/app/google_credentials.json
+data/
+tmp_ecos_download/
+*.pkl
