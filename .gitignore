@@ -1,27 +1,19 @@
-﻿# Python virtual environment
+﻿# Virtual environments
 .venv/
 venv/
-ENV/
 env/
-.venv310
+ENV/
 *.venv/
-**/.venv/
-**/venv/
 
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pyc
-**/__pycache__/
-**/*.pyc
 
 # Database
 *.db
-*.sqlite
 *.sqlite3
-users.db
 
 # IDE
 .vscode/
@@ -30,8 +22,11 @@ users.db
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets
 google_credentials.json
-src/app/google_credentials.json
+
+# Project-specific
 data/
 tmp_ecos_download/
 *.pkl
