@@ -3033,6 +3033,234 @@ if authenticated:
             fig.update_layout(title="Your 5-Year Risks", yaxis_title="Risk (%)", yaxis_range=[0, 50], height=350)
             st.plotly_chart(fig, use_container_width=True)
 
+    # ==================== LIFESTYLE OPTIMIZER ====================
+    elif selected == "Lifestyle Optimizer":
+        st.markdown("## 🌱 Lifestyle Optimizer")
+        
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); 
+                    padding: 1.5rem; border-radius: 15px; margin-bottom: 2rem;
+                    border-left: 5px solid #1E88E5;'>
+            <h4 style='margin:0; color: #1E88E5;'>🎯 Personalized Lifestyle Recommendations</h4>
+            <p style='margin:0.5rem 0 0 0; color: #666;'>
+                Get customized tips and recommendations to improve your health and reduce risk based on your current lifestyle.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Load user data
+        user_history_lo = db.get_user_history(user_id, limit=1)
+        
+        if not user_history_lo:
+            st.info("👋 Please complete a risk assessment first to get personalized lifestyle recommendations!")
+            if st.button("Start Risk Assessment →", use_container_width=True):
+                st.session_state.selected = "Risk Analysis"
+                st.rerun()
+        else:
+            last_pred_lo = user_history_lo[0]
+            user_age_lo = last_pred_lo.get('age', 45)
+            user_bmi_lo = last_pred_lo.get('bmi', 25.0)
+            user_bp_lo = last_pred_lo.get('bp', 120)
+            user_chol_lo = last_pred_lo.get('cholesterol', 200)
+            user_smoker_lo = last_pred_lo.get('smoker', False)
+            user_exercise_lo = last_pred_lo.get('exercise', 'Moderate')
+            user_diet_lo = last_pred_lo.get('diet', 'Good')
+            user_sleep_lo = last_pred_lo.get('sleep', 7)
+            user_stress_lo = last_pred_lo.get('stress', 5)
+            
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Current Status", "💡 Recommendations", "🎯 Action Plan", "📈 Progress Tracker"])
+            
+            with tab1:
+                st.markdown("### Your Current Lifestyle Profile")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">Age</div>
+                        <div class="metric-value">{user_age_lo}</div>
+                        <div style='font-size: 0.8rem; color: #666;'>years</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">BMI</div>
+                        <div class="metric-value">{user_bmi_lo:.1f}</div>
+                        <div style='font-size: 0.8rem; color: #666;'>
+                            {"🟢 Healthy" if 18.5 <= user_bmi_lo < 25 else "🟡 Overweight" if 25 <= user_bmi_lo < 30 else "🔴 Obese" if user_bmi_lo >= 30 else "🟡 Underweight"}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col3:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">Blood Pressure</div>
+                        <div class="metric-value">{user_bp_lo}</div>
+                        <div style='font-size: 0.8rem; color: #666;'>
+                            {"🟢 Normal" if user_bp_lo < 120 else "🟡 Elevated" if user_bp_lo < 130 else "🔴 High"}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("---")
+                
+                col4, col5, col6 = st.columns(3)
+                with col4:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">Cholesterol</div>
+                        <div class="metric-value">{user_chol_lo}</div>
+                        <div style='font-size: 0.8rem; color: #666;'>
+                            {"🟢 Desirable" if user_chol_lo < 200 else "🟡 Borderline" if user_chol_lo < 240 else "🔴 High"} mg/dL
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col5:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">Smoking</div>
+                        <div class="metric-value">{"🚭" if user_smoker_lo else "✅"}</div>
+                        <div style='font-size: 0.8rem; color: #666;'>
+                            {"Smoker" if user_smoker_lo else "Non-smoker"}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col6:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">Sleep</div>
+                        <div class="metric-value">{user_sleep_lo:.0f}</div>
+                        <div style='font-size: 0.8rem; color: #666;'>
+                            {"🟢 Good" if 7 <= user_sleep_lo <= 9 else "🟡 Fair"} hours
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Lifestyle radar chart
+                st.markdown("### Lifestyle Assessment Radar")
+                
+                exercise_score = {"Sedentary": 1, "Light": 2, "Moderate": 3, "Active": 4, "Very Active": 5}.get(user_exercise_lo, 3)
+                diet_score = {"Poor": 1, "Fair": 2, "Good": 3, "Excellent": 4}.get(user_diet_lo, 3)
+                bmi_score = 5 if 18.5 <= user_bmi_lo < 25 else (4 if 25 <= user_bmi_lo < 30 else (3 if 30 <= user_bmi_lo < 35 else 2) if user_bmi_lo < 18.5 else 1)
+                bp_score = 5 if user_bp_lo < 120 else (4 if user_bp_lo < 130 else (3 if user_bp_lo < 140 else 1))
+                chol_score = 5 if user_chol_lo < 200 else (3 if user_chol_lo < 240 else 1)
+                smoke_score = 5 if not user_smoker_lo else 1
+                sleep_score = 5 if 7 <= user_sleep_lo <= 9 else 3
+                stress_score = 5 - (user_stress_lo / 10 * 4)
+                
+                fig_radar = go.Figure(data=go.Scatterpolar(
+                    r=[exercise_score, diet_score, bmi_score, bp_score, chol_score, smoke_score, sleep_score, stress_score],
+                    theta=['Exercise', 'Diet', 'BMI', 'Blood Pressure', 'Cholesterol', 'Smoking', 'Sleep', 'Stress'],
+                    fill='toself',
+                    name='Your Score'
+                ), layout=go.Layout(
+                    polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
+                    showlegend=True,
+                    height=400
+                ))
+                st.plotly_chart(fig_radar, use_container_width=True)
+            
+            with tab2:
+                st.markdown("### 💡 Personalized Recommendations")
+                
+                recommendations = generate_personalized_advice_chat(
+                    user_age_lo, user_bmi_lo, user_bp_lo, user_chol_lo, 
+                    user_smoker_lo, user_exercise_lo, user_diet_lo, user_sleep_lo, user_stress_lo
+                )
+                
+                for i, rec in enumerate(recommendations, 1):
+                    icon = ["🏋️", "🍎", "💊", "🚭", "🏃", "🥗", "😴", "🧘"][i-1]
+                    st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #E8F0FE, #f0f7ff); 
+                                padding: 1rem; border-radius: 15px; margin-bottom: 1rem;
+                                border-left: 4px solid #1E88E5;'>
+                        <div style='font-size: 1rem;'>{icon} {rec}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            with tab3:
+                st.markdown("### 🎯 Your Personalized Action Plan")
+                
+                col_ap1, col_ap2 = st.columns([2, 1])
+                
+                with col_ap1:
+                    st.markdown("#### Week-by-Week Plan")
+                    
+                    action_items = []
+                    if user_bmi_lo > 25:
+                        action_items.append(("Week 1", "Start walking 10 minutes daily after meals", "🚶"))
+                    if user_bp_lo > 130:
+                        action_items.append(("Week 2", "Reduce salt intake, add deep breathing exercises", "🧘"))
+                    if user_chol_lo > 200:
+                        action_items.append(("Week 3", "Add oats, nuts, and fatty fish to diet", "🐟"))
+                    if user_smoker_lo:
+                        action_items.append(("Week 4", "Start smoking cessation program", "🚭"))
+                    if user_sleep_lo < 7:
+                        action_items.append(("Week 5", "Establish consistent bedtime routine", "🛌"))
+                    if user_exercise_lo in ["Sedentary", "Light"]:
+                        action_items.append(("Week 6", "Increase exercise to 30 minutes, 5 days/week", "🏃"))
+                    
+                    for week, action, emoji in action_items[:6]:
+                        st.markdown(f"""
+                        <div style='background: white; padding: 1rem; border-radius: 10px; 
+                                    margin-bottom: 0.5rem; border-left: 4px solid #43A047;'>
+                            <div style='display: flex; justify-content: space-between;'>
+                                <div><strong>{week}</strong></div>
+                                <div style='font-size: 1.2rem;'>{emoji}</div>
+                            </div>
+                            <div style='color: #666; font-size: 0.9rem;'>{action}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                with col_ap2:
+                    st.markdown("#### Quick Wins")
+                    quick_wins = [
+                        "🥗 Add 1 veggie per day",
+                        "🚶 Walk 10 min after meals",
+                        "💧 Drink 8 glasses water",
+                        "😴 Sleep 15 min earlier",
+                        "🧘 5 min meditation"
+                    ]
+                    for win in quick_wins:
+                        st.markdown(f"✓ {win}")
+            
+            with tab4:
+                st.markdown("### 📈 Track Your Progress")
+                
+                col_pt1, col_pt2 = st.columns([2, 1])
+                
+                with col_pt1:
+                    st.markdown("#### Goal Progress")
+                    
+                    goals = [
+                        ("🏋️ Weight Loss", 75, "Lose 5kg"),
+                        ("🏃 Exercise", 60, "30 min/day"),
+                        ("🥗 Healthy Diet", 80, "5 servings veggies"),
+                        ("😴 Sleep Quality", 70, "7-9 hours/night"),
+                        ("🚭 Quit Smoking", 0 if not user_smoker_lo else 30, "Stop smoking")
+                    ]
+                    
+                    for goal_name, progress, target in goals:
+                        st.markdown(f"{goal_name}: {target}")
+                        st.progress(progress / 100)
+                
+                with col_pt2:
+                    st.markdown("#### Milestones")
+                    milestones = [
+                        "🎯 1 Week Committed",
+                        "🎯 30 Days Strong",
+                        "🎯 3 Months Progress",
+                        "🎯 6 Months Champion",
+                        "🎯 1 Year Hero"
+                    ]
+                    for milestone in milestones:
+                        st.markdown(f"□ {milestone}")
+
     # ==================== WHAT-IF LAB ====================
     elif selected == "What-If Lab":
         st.markdown("## 🔬 What-If Simulation Laboratory")
