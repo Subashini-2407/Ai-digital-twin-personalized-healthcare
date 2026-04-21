@@ -4067,6 +4067,7 @@ if authenticated:
             st.info("🔌 Click 'Connect Smartwatch' to start receiving real-time health data.")
 
     # ==================== MOBILE CONNECTION ====================
+        # ==================== MOBILE CONNECTION WITH GOOGLE SHEETS ====================
     elif selected == "Mobile Connection":
         st.markdown("## 📱 Mobile Connection")
         
@@ -4074,128 +4075,491 @@ if authenticated:
         <div style='background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); 
                     padding: 1.5rem; border-radius: 15px; margin-bottom: 2rem;
                     border-left: 5px solid #1E88E5;'>
-            <h4 style='margin:0; color: #1E88E5;'>📱 Connect Your Mobile Device</h4>
+            <h4 style='margin:0; color: #1E88E5;'>📱 Sync Your Health Data with Google Sheets</h4>
             <p style='margin:0.5rem 0 0 0; color: #666;'>
-                Sync your health data from Google Fit or other fitness trackers to get personalized insights.
+                Connect your mobile device to sync health data. Your data is analyzed to provide personalized health insights.
             </p>
         </div>
         """, unsafe_allow_html=True)
         
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        try:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            creds_path = os.path.join(script_dir, 'google_credentials.json')
-            
-            if not os.path.exists(creds_path):
-                raise FileNotFoundError(f"google_credentials.json not found at {creds_path}")
-            
-            creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-            client = gspread.authorize(creds)
-            sheet = client.open('AI Digital Twin Health Data').sheet1
-            sheet_available = True
-        except Exception:
-            sheet_available = False
+        # Initialize session state
+        if 'sheet_connected' not in st.session_state:
+            st.session_state.sheet_connected = False
+        if 'google_sheet' not in st.session_state:
+            st.session_state.google_sheet = None
+        if 'mobile_data' not in st.session_state:
+            st.session_state.mobile_data = None
+        if 'sheet_name' not in st.session_state:
+            st.session_state.sheet_name = "AI Digital Twin Health Data"
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("📥 Sync from Google Sheets", width='stretch'):
-                if sheet_available:
+        # Function to connect to Google Sheets
+        def connect_to_google_sheets():
+            try:
+                import gspread
+                from oauth2client.service_account import ServiceAccountCredentials
+                import json
+                
+                scope = ['https://spreadsheets.google.com/feeds', 
+                        'https://www.googleapis.com/auth/drive']
+                
+                creds = None
+                
+                # Try Streamlit Secrets first
+                try:
+                    if "google" in st.secrets and "credentials" in st.secrets["google"]:
+                        creds_dict = st.secrets["google"]["credentials"]
+                        if isinstance(creds_dict, str):
+                            creds_dict = json.loads(creds_dict)
+                        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+                except Exception:
+                    pass
+                
+                # Try local file
+                if creds is None:
                     try:
-                        all_records = sheet.get_all_records()
-                        if all_records:
-                            df = pd.DataFrame(all_records)
-                            
-                            if 'timestamp' not in df.columns:
-                                st.error("Sheet missing 'timestamp' column")
-                            else:
-                                df['timestamp'] = pd.to_datetime(df['timestamp'])
-                                df = df.sort_values('timestamp')
-                                
-                                st.session_state.mobile_data['timestamps'] = df['timestamp'].tolist()
-                                st.session_state.mobile_data['heart_rate'] = df['heart_rate'].tolist() if 'heart_rate' in df else [None]*len(df)
-                                st.session_state.mobile_data['steps'] = df['steps'].tolist() if 'steps' in df else [0]*len(df)
-                                st.session_state.mobile_data['sleep'] = df['sleep'].tolist() if 'sleep' in df else [0]*len(df)
-                                st.session_state.mobile_data['calories'] = df['calories'].tolist() if 'calories' in df else [0]*len(df)
-                                st.session_state.mobile_data['distance_km'] = df['distance_km'].tolist() if 'distance_km' in df else [0]*len(df)
-                                st.session_state.mobile_data['active_minutes'] = df['active_minutes'].tolist() if 'active_minutes' in df else [0]*len(df)
-                                
-                                st.session_state.mobile_connected = True
-                                st.rerun()
-                        else:
-                            st.info("No data in Google Sheet yet.")
-                    except Exception as e:
-                        st.error(f"Error reading sheet: {str(e)}")
-                else:
-                    st.error("Google Sheets connection failed.")
+                        creds_path = os.path.join(os.path.dirname(__file__), 'google_credentials.json')
+                        if os.path.exists(creds_path):
+                            creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+                    except Exception:
+                        pass
+                
+                if creds is None:
+                    return False, "No valid credentials found"
+                
+                client = gspread.authorize(creds)
+                
+                # Try to open existing sheet
+                try:
+                    sheet = client.open(st.session_state.sheet_name).sheet1
+                except:
+                    sheet = client.create(st.session_state.sheet_name).sheet1
+                    headers = ['timestamp', 'heart_rate', 'steps', 'sleep', 'calories', 'distance_km', 'active_minutes']
+                    sheet.append_row(headers)
+                
+                st.session_state.google_sheet = sheet
+                return True, "Connected successfully!"
+                
+            except Exception as e:
+                return False, f"Connection error: {str(e)[:100]}"
         
-        if st.session_state.mobile_connected and len(st.session_state.mobile_data.get('timestamps', [])) > 0:
-            st.markdown("---")
-            st.markdown("### 📊 Latest Health Snapshot")
-            
-            latest = {
-                'timestamp': st.session_state.mobile_data['timestamps'][-1],
-                'steps': st.session_state.mobile_data['steps'][-1],
-                'calories': st.session_state.mobile_data['calories'][-1],
-                'distance_km': st.session_state.mobile_data['distance_km'][-1],
-                'active_minutes': st.session_state.mobile_data['active_minutes'][-1],
-                'sleep': st.session_state.mobile_data['sleep'][-1],
-                'heart_rate': st.session_state.mobile_data['heart_rate'][-1]
-            }
-            
-            col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                st.metric("👣 Steps", f"{latest['steps']:,}")
-                st.metric("🏃 Distance", f"{latest['distance_km']:.2f} km")
-            with col_m2:
-                st.metric("🔥 Calories", f"{latest['calories']:,}")
-                st.metric("⏱️ Active Minutes", f"{latest['active_minutes']} min")
-            with col_m3:
-                st.metric("😴 Sleep", f"{latest['sleep']} hrs" if latest['sleep'] else "Not entered")
-                st.metric("❤️ Heart Rate", f"{latest['heart_rate']} bpm" if latest['heart_rate'] else "Not entered")
-            
-            st.markdown("### 📈 Historical Trends")
-            df_device = pd.DataFrame({
-                'Date': st.session_state.mobile_data['timestamps'],
-                'Steps': st.session_state.mobile_data['steps'],
-                'Distance (km)': st.session_state.mobile_data['distance_km'],
-                'Active Minutes': st.session_state.mobile_data['active_minutes'],
-                'Calories': st.session_state.mobile_data['calories'],
-                'Sleep (hrs)': st.session_state.mobile_data['sleep'],
-                'Heart Rate': st.session_state.mobile_data['heart_rate']
-            })
-            df_device['Date'] = pd.to_datetime(df_device['Date'], errors='coerce')
-            numeric_columns = ['Steps', 'Distance (km)', 'Active Minutes', 'Calories', 'Sleep (hrs)', 'Heart Rate']
-            df_device[numeric_columns] = df_device[numeric_columns].apply(pd.to_numeric, errors='coerce')
-            
-            tab1, tab2, tab3 = st.tabs(["Activity", "Energy", "Wellness"])
-            with tab1:
-                fig1 = px.line(df_device, x='Date', y=['Steps', 'Distance (km)'], title="Daily Activity")
-                st.plotly_chart(fig1, width='stretch')
-            with tab2:
-                fig2 = px.line(df_device, x='Date', y=['Calories', 'Active Minutes'], title="Energy & Intensity")
-                st.plotly_chart(fig2, width='stretch')
-            with tab3:
-                fig3 = px.line(df_device, x='Date', y=['Sleep (hrs)', 'Heart Rate'], title="Sleep & Heart Rate")
-                st.plotly_chart(fig3, width='stretch')
-            
-            st.markdown("### 🚨 Health Alerts")
-            alerts = []
-            if latest['steps'] < 5000:
-                alerts.append("⚠️ Low step count. Aim for 7,500+ steps daily.")
-            if latest['active_minutes'] < 30:
-                alerts.append("⚠️ Low active minutes. Try to get at least 30 minutes of moderate activity.")
-            if latest['sleep'] and latest['sleep'] < 6:
-                alerts.append("⚠️ Insufficient sleep. Aim for 7-9 hours.")
-            if latest['heart_rate'] and latest['heart_rate'] > 100:
-                alerts.append("⚠️ High resting heart rate. Consult a doctor if persistent.")
-            if alerts:
-                for alert in alerts:
-                    st.warning(alert)
+        # Function to load and analyze data
+        def load_and_analyze_data():
+            if st.session_state.sheet_connected and st.session_state.google_sheet:
+                try:
+                    all_records = st.session_state.google_sheet.get_all_records()
+                    if all_records:
+                        df = pd.DataFrame(all_records)
+                        # Clean data - remove rows with invalid values
+                        if 'steps' in df.columns:
+                            df['steps'] = pd.to_numeric(df['steps'], errors='coerce').fillna(0)
+                        if 'heart_rate' in df.columns:
+                            df['heart_rate'] = pd.to_numeric(df['heart_rate'], errors='coerce').fillna(75)
+                        if 'sleep' in df.columns:
+                            df['sleep'] = pd.to_numeric(df['sleep'], errors='coerce').fillna(7)
+                        if 'calories' in df.columns:
+                            df['calories'] = pd.to_numeric(df['calories'], errors='coerce').fillna(2000)
+                        if 'active_minutes' in df.columns:
+                            df['active_minutes'] = pd.to_numeric(df['active_minutes'], errors='coerce').fillna(30)
+                        
+                        st.session_state.mobile_data = df
+                        return True, len(df)
+                    return False, 0
+                except Exception as e:
+                    return False, 0
+            return False, 0
+        
+        # Connection UI
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            if not st.session_state.sheet_connected:
+                if st.button("🔌 Connect to Google Sheets", type="primary", use_container_width=True):
+                    with st.spinner("Connecting..."):
+                        success, message = connect_to_google_sheets()
+                        if success:
+                            st.session_state.sheet_connected = True
+                            st.success(message)
+                            # Load data after connection
+                            load_and_analyze_data()
+                            st.rerun()
+                        else:
+                            st.error(message)
             else:
-                st.success("✅ All metrics within healthy ranges. Keep it up!")
+                st.success("✅ Connected")
+                if st.button("Disconnect", use_container_width=True):
+                    st.session_state.sheet_connected = False
+                    st.session_state.google_sheet = None
+                    st.session_state.mobile_data = None
+                    st.rerun()
+        
+        with col2:
+            if st.session_state.sheet_connected:
+                # Count records
+                if st.session_state.mobile_data is not None:
+                    record_count = len(st.session_state.mobile_data)
+                    st.metric("Records Synced", record_count)
+                else:
+                    st.metric("Status", "Synced")
+        
+        with col3:
+            if st.session_state.sheet_connected:
+                if st.button("🔄 Refresh Data", use_container_width=True):
+                    with st.spinner("Refreshing..."):
+                        success, count = load_and_analyze_data()
+                        if success:
+                            st.success(f"✅ Loaded {count} records")
+                            st.rerun()
+                        else:
+                            st.warning("No new data found")
+        
+        st.markdown("---")
+        
+        # Only show analytics if connected
+        if st.session_state.sheet_connected and st.session_state.mobile_data is not None and not st.session_state.mobile_data.empty:
+            df = st.session_state.mobile_data
+            
+            # Create tabs for different analytics
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Health Overview", "📈 Trends", "💡 Insights", "➕ Add Data"])
+            
+            with tab1:
+                st.markdown("### 📊 Your Health Overview")
+                
+                # Calculate metrics
+                avg_steps = df['steps'].mean()
+                avg_heart_rate = df['heart_rate'].mean()
+                avg_sleep = df['sleep'].mean()
+                avg_calories = df['calories'].mean()
+                avg_active = df['active_minutes'].mean()
+                total_days = len(df)
+                
+                # Display metric cards
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    step_status = "✅ Good" if avg_steps >= 7000 else "⚠️ Needs Improvement"
+                    st.markdown(f"""
+                    <div style='background: white; padding: 1rem; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);'>
+                        <div style='font-size: 2rem;'>👟</div>
+                        <div style='font-size: 1.5rem; font-weight: 700;'>{avg_steps:.0f}</div>
+                        <div>Avg Daily Steps</div>
+                        <div style='font-size: 0.8rem; color: {"#43A047" if avg_steps >= 7000 else "#E53935"};'>{step_status}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    hr_status = "✅ Normal" if 60 <= avg_heart_rate <= 100 else "⚠️ Check"
+                    st.markdown(f"""
+                    <div style='background: white; padding: 1rem; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);'>
+                        <div style='font-size: 2rem;'>❤️</div>
+                        <div style='font-size: 1.5rem; font-weight: 700;'>{avg_heart_rate:.0f}</div>
+                        <div>Avg Heart Rate</div>
+                        <div style='font-size: 0.8rem; color: {"#43A047" if 60 <= avg_heart_rate <= 100 else "#E53935"};'>{hr_status}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col3:
+                    sleep_status = "✅ Optimal" if 7 <= avg_sleep <= 9 else "⚠️ Adjust"
+                    st.markdown(f"""
+                    <div style='background: white; padding: 1rem; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);'>
+                        <div style='font-size: 2rem;'>😴</div>
+                        <div style='font-size: 1.5rem; font-weight: 700;'>{avg_sleep:.1f}</div>
+                        <div>Avg Sleep (hrs)</div>
+                        <div style='font-size: 0.8rem; color: {"#43A047" if 7 <= avg_sleep <= 9 else "#E53935"};'>{sleep_status}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col4:
+                    st.markdown(f"""
+                    <div style='background: white; padding: 1rem; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);'>
+                        <div style='font-size: 2rem;'>📅</div>
+                        <div style='font-size: 1.5rem; font-weight: 700;'>{total_days}</div>
+                        <div>Days Tracked</div>
+                        <div style='font-size: 0.8rem; color: #666;'>Total Records</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Health Score Gauge
+                st.markdown("### 🎯 Your Mobile Health Score")
+                
+                # Calculate health score
+                health_score = 70
+                if avg_steps >= 10000:
+                    health_score += 15
+                elif avg_steps >= 7000:
+                    health_score += 10
+                elif avg_steps >= 5000:
+                    health_score += 5
+                
+                if 60 <= avg_heart_rate <= 80:
+                    health_score += 10
+                elif 80 < avg_heart_rate <= 100:
+                    health_score += 5
+                
+                if 7 <= avg_sleep <= 9:
+                    health_score += 10
+                elif 6 <= avg_sleep < 7:
+                    health_score += 5
+                
+                health_score = min(100, health_score)
+                
+                fig_gauge = go.Figure(go.Indicator(
+                    mode="gauge+number+delta",
+                    value=health_score,
+                    title={'text': "Health Score", 'font': {'size': 20}},
+                    delta={'reference': 70, 'increasing': {'color': "#43A047"}},
+                    gauge={
+                        'axis': {'range': [0, 100]},
+                        'bar': {'color': "#1E88E5"},
+                        'steps': [
+                            {'range': [0, 50], 'color': 'rgba(229, 57, 53, 0.2)'},
+                            {'range': [50, 75], 'color': 'rgba(251, 140, 0, 0.2)'},
+                            {'range': [75, 100], 'color': 'rgba(67, 160, 71, 0.2)'}
+                        ]
+                    }
+                ))
+                fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=50, b=20))
+                st.plotly_chart(fig_gauge, use_container_width=True)
+            
+            with tab2:
+                st.markdown("### 📈 Health Trends")
+                
+                # Convert timestamp to date
+                if 'timestamp' in df.columns:
+                    df['date'] = pd.to_datetime(df['timestamp'], errors='coerce')
+                    df = df.sort_values('date')
+                    
+                    # Steps trend
+                    fig_steps = go.Figure()
+                    fig_steps.add_trace(go.Scatter(
+                        x=df['date'], y=df['steps'],
+                        mode='lines+markers',
+                        name='Steps',
+                        line=dict(color='#1E88E5', width=3),
+                        marker=dict(size=8, color='#1E88E5'),
+                        fill='tozeroy',
+                        fillcolor='rgba(30,136,229,0.1)'
+                    ))
+                    fig_steps.add_hline(y=10000, line_dash="dash", line_color="green", annotation_text="Goal")
+                    fig_steps.update_layout(
+                        title="Steps Over Time",
+                        xaxis_title="Date",
+                        yaxis_title="Steps",
+                        height=350,
+                        hovermode='x unified'
+                    )
+                    st.plotly_chart(fig_steps, use_container_width=True)
+                    
+                    # Heart Rate & Sleep combo
+                    fig_hr_sleep = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_hr_sleep.add_trace(
+                        go.Scatter(x=df['date'], y=df['heart_rate'],
+                                  mode='lines+markers', name='Heart Rate',
+                                  line=dict(color='#E53935', width=3)),
+                        secondary_y=False
+                    )
+                    fig_hr_sleep.add_trace(
+                        go.Scatter(x=df['date'], y=df['sleep'],
+                                  mode='lines+markers', name='Sleep',
+                                  line=dict(color='#43A047', width=3)),
+                        secondary_y=True
+                    )
+                    fig_hr_sleep.update_layout(title="Heart Rate & Sleep", height=350)
+                    fig_hr_sleep.update_yaxes(title_text="Heart Rate (BPM)", secondary_y=False)
+                    fig_hr_sleep.update_yaxes(title_text="Sleep (hours)", secondary_y=True)
+                    st.plotly_chart(fig_hr_sleep, use_container_width=True)
+                    
+                    # Active Minutes & Calories
+                    fig_active = go.Figure()
+                    fig_active.add_trace(go.Bar(
+                        x=df['date'], y=df['active_minutes'],
+                        name='Active Minutes',
+                        marker_color='#FB8C00',
+                        text=df['active_minutes'], textposition='outside'
+                    ))
+                    fig_active.add_trace(go.Scatter(
+                        x=df['date'], y=df['calories'],
+                        name='Calories',
+                        mode='lines+markers',
+                        line=dict(color='#9C27B0', width=2),
+                        yaxis='y2'
+                    ))
+                    fig_active.update_layout(
+                        title="Activity & Calories",
+                        xaxis_title="Date",
+                        yaxis_title="Active Minutes",
+                        yaxis2=dict(title="Calories", overlaying='y', side='right'),
+                        height=350
+                    )
+                    st.plotly_chart(fig_active, use_container_width=True)
+            
+            with tab3:
+                st.markdown("### 💡 Personalized Health Insights")
+                
+                insights = []
+                
+                # Step insights
+                if avg_steps < 5000:
+                    insights.append({
+                        "icon": "🚶",
+                        "title": "Low Activity Level",
+                        "message": f"Your average steps ({avg_steps:.0f}) are below recommended levels.",
+                        "tip": "Start with 10-minute walks after meals. Gradually increase to 30 minutes daily."
+                    })
+                elif avg_steps < 7000:
+                    insights.append({
+                        "icon": "👍",
+                        "title": "Moderate Activity",
+                        "message": f"Good job! You're averaging {avg_steps:.0f} steps daily.",
+                        "tip": "Try to reach 10,000 steps by taking the stairs or parking farther away."
+                    })
+                elif avg_steps >= 10000:
+                    insights.append({
+                        "icon": "🏆",
+                        "title": "Excellent Activity!",
+                        "message": f"Amazing! You're exceeding the daily step goal with {avg_steps:.0f} steps.",
+                        "tip": "Keep up the great work! Consider adding strength training 2-3 times per week."
+                    })
+                
+                # Heart rate insights
+                if avg_heart_rate > 90:
+                    insights.append({
+                        "icon": "❤️",
+                        "title": "Elevated Heart Rate",
+                        "message": f"Your average heart rate ({avg_heart_rate:.0f} BPM) is above normal.",
+                        "tip": "Practice deep breathing, reduce caffeine, and ensure adequate hydration."
+                    })
+                elif avg_heart_rate < 60:
+                    insights.append({
+                        "icon": "💪",
+                        "title": "Low Heart Rate",
+                        "message": f"Your heart rate ({avg_heart_rate:.0f} BPM) is below average.",
+                        "tip": "This is common in athletes. If you feel dizzy, consult a doctor."
+                    })
+                else:
+                    insights.append({
+                        "icon": "✅",
+                        "title": "Healthy Heart Rate",
+                        "message": f"Your heart rate ({avg_heart_rate:.0f} BPM) is in optimal range!",
+                        "tip": "Maintain this with regular exercise and stress management."
+                    })
+                
+                # Sleep insights
+                if avg_sleep < 7:
+                    insights.append({
+                        "icon": "😴",
+                        "title": "Sleep Deprivation",
+                        "message": f"You're averaging only {avg_sleep:.1f} hours of sleep.",
+                        "tip": "Set a consistent bedtime, avoid screens 1 hour before bed, and keep your room dark."
+                    })
+                elif avg_sleep > 9:
+                    insights.append({
+                        "icon": "💤",
+                        "title": "Excessive Sleep",
+                        "message": f"You're sleeping {avg_sleep:.1f} hours on average.",
+                        "tip": "While rest is important, excessive sleep may indicate underlying issues. Consider a check-up."
+                    })
+                else:
+                    insights.append({
+                        "icon": "🌟",
+                        "title": "Optimal Sleep!",
+                        "message": f"Great! You're getting {avg_sleep:.1f} hours of quality sleep.",
+                        "tip": "Your sleep habits are excellent. Keep your consistent schedule!"
+                    })
+                
+                # Activity insights
+                if avg_active < 30:
+                    insights.append({
+                        "icon": "⏱️",
+                        "title": "Low Active Minutes",
+                        "message": f"You're averaging only {avg_active:.0f} active minutes daily.",
+                        "tip": "Aim for 30 minutes of moderate activity daily. Try brisk walking or cycling."
+                    })
+                elif avg_active >= 60:
+                    insights.append({
+                        "icon": "🔥",
+                        "title": "Highly Active!",
+                        "message": f"Excellent! You're getting {avg_active:.0f} active minutes daily.",
+                        "tip": "Great job! Consider adding variety to your workouts for balanced fitness."
+                    })
+                
+                # Display insights
+                for insight in insights[:5]:
+                    st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #f8f9fa, #ffffff); 
+                                padding: 1.2rem; border-radius: 15px; margin-bottom: 1rem;
+                                border-left: 5px solid #1E88E5;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.05);'>
+                        <div style='display: flex; align-items: center; margin-bottom: 0.5rem;'>
+                            <span style='font-size: 2rem; margin-right: 0.8rem;'>{insight['icon']}</span>
+                            <span style='font-size: 1.2rem; font-weight: 700; color: #1E88E5;'>{insight['title']}</span>
+                        </div>
+                        <p style='margin: 0.5rem 0; color: #444;'>{insight['message']}</p>
+                        <p style='margin: 0.5rem 0 0 0; color: #43A047;'>
+                            <strong>💡 Tip:</strong> {insight['tip']}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Progress message
+                st.markdown("---")
+                st.markdown("### 🎯 Your Progress")
+                
+                # Show improvement message
+                if len(df) >= 2:
+                    recent_avg = df['steps'].tail(3).mean()
+                    previous_avg = df['steps'].head(3).mean()
+                    if recent_avg > previous_avg:
+                        st.success("📈 **Great progress!** Your step count is improving over time. Keep going!")
+                    elif recent_avg < previous_avg:
+                        st.info("📉 **Time to refocus!** Your recent activity has decreased. Set a small daily goal to get back on track.")
+                    else:
+                        st.info("📊 **Consistent effort!** You're maintaining steady activity levels. Try increasing gradually.")
+            
+            with tab4:
+                st.markdown("### ➕ Add New Health Data")
+                st.markdown("Add your daily health metrics to track your progress:")
+                
+                entry_date = st.date_input("📅 Date", datetime.now())
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    new_steps = st.number_input("👟 Steps", 0, 50000, 0, step=500)
+                    new_heart_rate = st.number_input("❤️ Heart Rate (BPM)", 40, 150, 75)
+                    new_sleep = st.number_input("😴 Sleep (hours)", 0.0, 24.0, 7.0, step=0.5)
+                
+                with col2:
+                    new_calories = st.number_input("🔥 Calories Burned", 0, 5000, 2000, step=100)
+                    new_distance = st.number_input("📏 Distance (km)", 0.0, 50.0, 0.0, step=0.5)
+                    new_active = st.number_input("⏱️ Active Minutes", 0, 300, 30, step=5)
+                
+                if st.button("💾 Save to Google Sheets", type="primary", use_container_width=True):
+                    if st.session_state.sheet_connected and st.session_state.google_sheet:
+                        try:
+                            new_row = [
+                                entry_date.strftime("%d/%m/%Y %H:%M"),
+                                new_heart_rate,
+                                new_steps,
+                                new_sleep,
+                                new_calories,
+                                new_distance,
+                                new_active
+                            ]
+                            st.session_state.google_sheet.append_row(new_row)
+                            # Reload data
+                            load_and_analyze_data()
+                            st.balloons()
+                            st.success("✅ Data saved and synced with Google Sheets!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {str(e)[:100]}")
+                    else:
+                        st.warning("⚠️ Please connect to Google Sheets first!")
+        
+        elif st.session_state.sheet_connected:
+            st.info("📭 No data found in Google Sheets. Add your first health data entry using the 'Add Data' tab above!")
         else:
-            st.info("Click 'Sync from Google Sheets' to load your health data.")
-
+            st.info("🔌 Click 'Connect to Google Sheets' to start syncing your health data and get personalized insights!")
     # ==================== AI INSIGHTS ====================
     elif selected == "AI Insights":
         st.markdown("## 🤖 AI-Powered Health Insights")
