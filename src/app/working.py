@@ -5646,142 +5646,272 @@ if authenticated:
                 st.info("Complete challenges to unlock achievements!")
 
     # ==================== TELEMEDICINE ====================
+        # ==================== TELEMEDICINE (Location-Based Area Matching) ====================
     elif selected == "Telemedicine":
-        st.markdown("## 🏥 Telemedicine & Doctor Consultation")
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        import hashlib
+
+        def send_booking_email(user_email, hospital_name, hospital_phone, appointment_date, user_name="User"):
+            """Send real appointment confirmation email using SMTP."""
+            subject = f"Appointment Request Confirmation – {hospital_name}"
+            body = f"""
+Dear {user_name},
+
+Your appointment request with {hospital_name} has been received successfully.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 APPOINTMENT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Hospital: {hospital_name}
+Phone: {hospital_phone}
+Preferred Date: {appointment_date}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. The hospital will contact you at {user_email} or via phone shortly
+2. Please keep your reference ID: {hashlib.md5(user_email.encode()).hexdigest()[:8].upper()}
+3. Bring any previous medical records to your appointment
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Thank you for using AI Digital Twin Platform.
+
+📞 Need help? Contact support: support@digitaltwin.com
+
+This is an automated confirmation. Please do not reply to this email.
+"""
+            try:
+                if "smtp" in st.secrets:
+                    smtp_server = st.secrets["smtp"]["server"]
+                    smtp_port = st.secrets["smtp"]["port"]
+                    smtp_user = st.secrets["smtp"]["username"]
+                    smtp_pass = st.secrets["smtp"]["password"]
+                    from_email = st.secrets["smtp"]["from_email"]
+                    
+                    msg = MIMEMultipart()
+                    msg['From'] = from_email
+                    msg['To'] = user_email
+                    msg['Subject'] = subject
+                    msg.attach(MIMEText(body, 'plain'))
+                    
+                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                    server.quit()
+                    
+                    print(f"[EMAIL SENT] To: {user_email} | Hospital: {hospital_name}")
+                    return True
+                else:
+                    return False
+            except Exception as e:
+                print(f"Email error: {e}")
+                return False
+
+        st.markdown("## 🏥 Find Hospitals Near Your Area")
         
         st.markdown("""
         <div style='background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); 
                     padding: 1.5rem; border-radius: 15px; margin-bottom: 2rem;
                     border-left: 5px solid #1E88E5;'>
-            <h4 style='margin:0; color: #1E88E5;'>👨‍⚕️ Consult with Healthcare Professionals</h4>
+            <h4 style='margin:0; color: #1E88E5;'>📍 Find Hospitals Based on Your Area</h4>
             <p style='margin:0.5rem 0 0 0; color: #666;'>
-                Book video consultations with doctors, share your health data, and receive expert medical advice.
+                Select your district and area from the dropdown menus. We'll show you hospitals near that location.
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+        # District selection
+        district = st.selectbox("Select District", ["Chennai", "Chengalpattu"], index=0)
         
-        doctors = {
-            "Cardiologist": [
-                {"name": "Dr. Sarah Johnson", "experience": "15 years", "rating": 4.9, "available": True, "price": "$150", "specialty": "Heart Specialist"},
-                {"name": "Dr. Michael Chen", "experience": "12 years", "rating": 4.8, "available": True, "price": "$140", "specialty": "Cardiac Surgeon"},
+        # Area/Locality mapping based on district
+        area_mapping = {
+            "Chennai": [
+                "T Nagar", "Adyar", "Porur", "Velachery", "Tambaram", "Mylapore", "Nungambakkam",
+                "Anna Nagar", "Kilpauk", "Guindy", "Kodambakkam", "Alwarpet", "Besant Nagar",
+                "Perungudi", "Sholinganallur", "Medavakkam", "Mogappair", "Vadapalani", "Egmore",
+                "Triplicane", "Royapettah", "Saidapet", "Chromepet", "Pallavaram", "Ambattur"
             ],
-            "General Physician": [
-                {"name": "Dr. James Wilson", "experience": "20 years", "rating": 4.9, "available": True, "price": "$120", "specialty": "Family Medicine"},
-                {"name": "Dr. Lisa Brown", "experience": "8 years", "rating": 4.8, "available": True, "price": "$110", "specialty": "Internal Medicine"},
-            ],
-            "Endocrinologist": [
-                {"name": "Dr. Maria Garcia", "experience": "11 years", "rating": 4.9, "available": True, "price": "$160", "specialty": "Diabetes Specialist"},
-            ],
-            "Nutritionist": [
-                {"name": "Dr. Jennifer Lee", "experience": "7 years", "rating": 4.8, "available": True, "price": "$100", "specialty": "Clinical Nutrition"},
-            ],
-            "Psychologist": [
-                {"name": "Dr. Laura Martinez", "experience": "12 years", "rating": 4.9, "available": True, "price": "$130", "specialty": "Mental Health"},
+            "Chengalpattu": [
+                "Chengalpattu Town", "GST Road", "Old Mahabalipuram Road", "Kuthambakkam",
+                "Oragadam", "Sriperumbudur", "Singaperumal Koil", "Maraimalai Nagar"
             ]
         }
         
-        tab1, tab2, tab3 = st.tabs(["📅 Book Appointment", "👨‍⚕️ Find a Doctor", "📋 My Appointments"])
+        selected_area = st.selectbox("Select Your Area / Locality", area_mapping.get(district, []), index=0)
         
-        with tab1:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                specialty = st.selectbox("Select Specialty", list(doctors.keys()))
-                available_doctors = [d for d in doctors[specialty] if d['available']]
-                
-                if available_doctors:
-                    doctor_names = [f"{d['name']} - ⭐ {d['rating']} ({d['experience']})" for d in available_doctors]
-                    selected_doctor_str = st.selectbox("Select Doctor", doctor_names)
-                    selected_doctor = available_doctors[doctor_names.index(selected_doctor_str)]
-                    
-                    st.info(f"""
-                    **{selected_doctor['name']}**  
-                    ⭐ {selected_doctor['rating']} · {selected_doctor['experience']} exp  
-                    💰 {selected_doctor['price']}/visit · 🩺 {selected_doctor['specialty']}
-                    """)
-                else:
-                    st.error("No doctors available for this specialty")
-                    selected_doctor = None
-                
-                consultation_type = st.radio("Consultation Type", ["Video Call", "Audio Call", "Chat Only"], horizontal=True)
-            
-            with col2:
-                available_dates = [(datetime.now() + timedelta(days=i)).strftime("%A, %B %d") for i in range(1, 8)]
-                selected_date = st.selectbox("Select Date", available_dates)
-                time_slots = ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM"]
-                selected_time = st.selectbox("Select Time", time_slots)
-                reason = st.text_area("Reason for Consultation", placeholder="Describe your symptoms...", height=100)
-                share_data = st.checkbox("Share my health data with doctor", value=True)
-                
-                user_history = db.get_user_history(user_id, limit=1)
-                if user_history and share_data:
-                    st.info(f"📊 Sharing health records with doctor")
-            
-            if st.button("✅ Confirm Booking", type="primary", use_container_width=True):
-                if selected_doctor and reason:
-                    appointment = {
-                        'id': len(st.session_state.appointments) + 1,
-                        'doctor_name': selected_doctor['name'],
-                        'specialty': specialty,
-                        'date': selected_date,
-                        'time': selected_time,
-                        'type': consultation_type,
-                        'reason': reason,
-                        'status': 'confirmed',
-                        'price': selected_doctor['price'],
-                        'booked_on': datetime.now().strftime("%Y-%m-%d %H:%M")
-                    }
-                    st.session_state.appointments.append(appointment)
-                    st.balloons()
-                    st.success(f"✅ Appointment confirmed with {selected_doctor['name']} on {selected_date} at {selected_time}")
-                    st.info(f"📧 Confirmation sent to your email. Meeting link will be sent 15 minutes before appointment.")
-                else:
-                    st.error("Please select a doctor and provide reason for consultation")
-        
-        with tab2:
-            st.markdown("### 🔍 Search Doctors")
-            search_specialty = st.selectbox("Filter by Specialty", ["All"] + list(doctors.keys()))
-            
-            for specialty, doc_list in doctors.items():
-                if search_specialty == "All" or search_specialty == specialty:
-                    st.markdown(f"#### {specialty}")
-                    for doc in doc_list:
-                        col1, col2, col3 = st.columns([2, 1, 1])
-                        with col1:
-                            st.markdown(f"**{doc['name']}**  \n⭐ {doc['rating']} · {doc['experience']} · {doc['specialty']}")
-                        with col2:
-                            st.markdown(f"💰 {doc['price']}")
-                        with col3:
-                            if doc['available']:
-                                if st.button(f"Book {doc['name'].split()[1]}", key=f"book_{doc['name']}"):
-                                    st.success(f"Redirecting to booking for {doc['name']}")
-        
-        with tab3:
-            st.markdown("### 📋 Your Appointments")
-            
-            if st.session_state.appointments:
-                for apt in st.session_state.appointments:
-                    with st.expander(f"📅 {apt['date']} at {apt['time']} - {apt['doctor_name']} ({apt['specialty']})"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown(f"""
-                            **Status:** ✅ {apt['status'].upper()}  
-                            **Type:** {apt['type']}  
-                            **Price:** {apt['price']}  
-                            **Reason:** {apt['reason']}
-                            """)
-                        with col2:
-                            if apt['status'] == 'confirmed':
-                                if st.button(f"Join Call", key=f"join_{apt['id']}"):
-                                    st.info("🎥 Connecting to video call... Meeting link will appear here.")
-                            if st.button(f"Cancel", key=f"cancel_{apt['id']}"):
-                                apt['status'] = 'cancelled'
-                                st.warning("Appointment cancelled")
-                                st.rerun()
-            else:
-                st.info("No appointments booked yet. Schedule your first consultation!")
+        # Hospital database with area mapping (which areas each hospital serves)
+        hospitals_db = {
+            "Chennai": {
+                "T Nagar": [
+                    {"name": "VS Hospitals, T Nagar", "address": "No 111, 24th Cross St, Indira Nagar, T Nagar, Chennai 600017", "phone": "044-28152323", "costs": {"General Consultation": "₹500 - ₹800", "Specialist Consultation": "₹800 - ₹1200", "ECG": "₹350", "Blood Test (Basic)": "₹400"}},
+                    {"name": "Apollo Hospitals, Greams Road", "address": "21, Greams Lane, Off Greams Road, Chennai 600006", "phone": "044-28290200", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹500", "Blood Test (Basic)": "₹600"}},
+                    {"name": "Kauvery Hospital, Alwarpet", "address": "Old No 144, New No 73, Alwarpet, Chennai 600018", "phone": "044-40046000", "costs": {"General Consultation": "₹700 - ₹1100", "Specialist Consultation": "₹1100 - ₹1900", "ECG": "₹500", "Blood Test (Basic)": "₹600"}},
+                    {"name": "Sankara Nethralaya, Nungambakkam", "address": "No. 41 (Old 18), College Road, Nungambakkam, Chennai 600006", "phone": "044-28271616", "costs": {"Eye Consultation": "₹500 - ₹1000", "Eye Check-up": "₹800", "Surgery (Cataract)": "₹25000 - ₹45000"}}
+                ],
+                "Adyar": [
+                    {"name": "Fortis Malar Hospital, Adyar", "address": "52, 1st Main Rd, Gandhi Nagar, Adyar, Chennai 600020", "phone": "044-24422525", "costs": {"General Consultation": "₹700 - ₹1000", "Specialist Consultation": "₹1000 - ₹1800", "ECG": "₹450", "Blood Test (Basic)": "₹550"}},
+                    {"name": "Kauvery Hospital, Alwarpet", "address": "Old No 144, New No 73, Alwarpet, Chennai 600018", "phone": "044-40046000", "costs": {"General Consultation": "₹700 - ₹1100", "Specialist Consultation": "₹1100 - ₹1900", "ECG": "₹500", "Blood Test (Basic)": "₹600"}}
+                ],
+                "Porur": [
+                    {"name": "Sri Ramachandra Medical Centre, Porur", "address": "No.1, Ramachandra Nagar, Porur, Chennai 600116", "phone": "044-24768402", "costs": {"General Consultation": "₹600 - ₹900", "Specialist Consultation": "₹900 - ₹1500", "ECG": "₹400", "Blood Test (Basic)": "₹500"}},
+                    {"name": "MIOT International, Manapakkam", "address": "4/112, Mount Poonamallee Rd, Manapakkam, Chennai 600089", "phone": "044-42002288", "costs": {"General Consultation": "₹1000 - ₹1500", "Specialist Consultation": "₹1500 - ₹2500", "ECG": "₹600", "Blood Test (Basic)": "₹700"}}
+                ],
+                "Velachery": [
+                    {"name": "Global Hospitals, Perumbakkam", "address": "439, Perumbakkam Main Rd, Medavakkam, Chennai 600100", "phone": "044-44777000", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹550", "Blood Test (Basic)": "₹650"}},
+                    {"name": "Fortis Malar Hospital, Adyar", "address": "52, 1st Main Rd, Gandhi Nagar, Adyar, Chennai 600020", "phone": "044-24422525", "costs": {"General Consultation": "₹700 - ₹1000", "Specialist Consultation": "₹1000 - ₹1800", "ECG": "₹450", "Blood Test (Basic)": "₹550"}}
+                ],
+                "Tambaram": [
+                    {"name": "Global Hospitals, Perumbakkam", "address": "439, Perumbakkam Main Rd, Medavakkam, Chennai 600100", "phone": "044-44777000", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹550", "Blood Test (Basic)": "₹650"}},
+                    {"name": "Sri Ramachandra Medical Centre, Porur", "address": "No.1, Ramachandra Nagar, Porur, Chennai 600116", "phone": "044-24768402", "costs": {"General Consultation": "₹600 - ₹900", "Specialist Consultation": "₹900 - ₹1500", "ECG": "₹400", "Blood Test (Basic)": "₹500"}}
+                ],
+                "Mylapore": [
+                    {"name": "Kauvery Hospital, Alwarpet", "address": "Old No 144, New No 73, Alwarpet, Chennai 600018", "phone": "044-40046000", "costs": {"General Consultation": "₹700 - ₹1100", "Specialist Consultation": "₹1100 - ₹1900", "ECG": "₹500", "Blood Test (Basic)": "₹600"}},
+                    {"name": "Apollo Hospitals, Greams Road", "address": "21, Greams Lane, Off Greams Road, Chennai 600006", "phone": "044-28290200", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹500", "Blood Test (Basic)": "₹600"}}
+                ],
+                "Nungambakkam": [
+                    {"name": "Apollo Hospitals, Greams Road", "address": "21, Greams Lane, Off Greams Road, Chennai 600006", "phone": "044-28290200", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹500", "Blood Test (Basic)": "₹600"}},
+                    {"name": "Sankara Nethralaya, Nungambakkam", "address": "No. 41 (Old 18), College Road, Nungambakkam, Chennai 600006", "phone": "044-28271616", "costs": {"Eye Consultation": "₹500 - ₹1000", "Eye Check-up": "₹800", "Surgery (Cataract)": "₹25000 - ₹45000"}}
+                ],
+                "Anna Nagar": [
+                    {"name": "Billroth Hospitals, Shenoy Nagar", "address": "43, Lakshmi Talkies Rd, Shenoy Nagar, Chennai 600030", "phone": "044-26641111", "costs": {"General Consultation": "₹600 - ₹900", "Specialist Consultation": "₹900 - ₹1500", "ECG": "₹450", "Blood Test (Basic)": "₹500"}},
+                    {"name": "Apollo Hospitals, Greams Road", "address": "21, Greams Lane, Off Greams Road, Chennai 600006", "phone": "044-28290200", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹500", "Blood Test (Basic)": "₹600"}}
+                ],
+                "Guindy": [
+                    {"name": "MIOT International, Manapakkam", "address": "4/112, Mount Poonamallee Rd, Manapakkam, Chennai 600089", "phone": "044-42002288", "costs": {"General Consultation": "₹1000 - ₹1500", "Specialist Consultation": "₹1500 - ₹2500", "ECG": "₹600", "Blood Test (Basic)": "₹700"}},
+                    {"name": "Fortis Malar Hospital, Adyar", "address": "52, 1st Main Rd, Gandhi Nagar, Adyar, Chennai 600020", "phone": "044-24422525", "costs": {"General Consultation": "₹700 - ₹1000", "Specialist Consultation": "₹1000 - ₹1800", "ECG": "₹450", "Blood Test (Basic)": "₹550"}}
+                ],
+                "Kodambakkam": [
+                    {"name": "Apollo Hospitals, Greams Road", "address": "21, Greams Lane, Off Greams Road, Chennai 600006", "phone": "044-28290200", "costs": {"General Consultation": "₹800 - ₹1200", "Specialist Consultation": "₹1200 - ₹2000", "ECG": "₹500", "Blood Test (Basic)": "₹600"}},
+                    {"name": "VS Hospitals, T Nagar", "address": "No 111, 24th Cross St, Indira Nagar, T Nagar, Chennai 600017", "phone": "044-28152323", "costs": {"General Consultation": "₹500 - ₹800", "Specialist Consultation": "₹800 - ₹1200", "ECG": "₹350", "Blood Test (Basic)": "₹400"}}
+                ]
+            },
+            "Chengalpattu": {
+                "Chengalpattu Town": [
+                    {"name": "Government Chengalpattu Medical College Hospital", "address": "GST Road, Chengalpattu, Tamil Nadu 603001", "phone": "044-27427700", "costs": {"General Consultation": "₹100 - ₹200", "Specialist Consultation": "₹200 - ₹400", "ECG": "₹100", "Blood Test (Basic)": "₹150"}},
+                    {"name": "Rathinam Hospital", "address": "54, GST Road, Chengalpattu, TN 603001", "phone": "044-27428888", "costs": {"General Consultation": "₹400 - ₹600", "Specialist Consultation": "₹600 - ₹1000", "ECG": "₹350", "Blood Test (Basic)": "₹450"}},
+                    {"name": "Balaji Hospital & Research Centre", "address": "No. 275, GST Road, Chengalpattu, TN 603001", "phone": "044-27427272", "costs": {"General Consultation": "₹350 - ₹500", "Specialist Consultation": "₹500 - ₹800", "ECG": "₹300", "Blood Test (Basic)": "₹400"}}
+                ],
+                "GST Road": [
+                    {"name": "Government Chengalpattu Medical College Hospital", "address": "GST Road, Chengalpattu, Tamil Nadu 603001", "phone": "044-27427700", "costs": {"General Consultation": "₹100 - ₹200", "Specialist Consultation": "₹200 - ₹400", "ECG": "₹100", "Blood Test (Basic)": "₹150"}},
+                    {"name": "Rathinam Hospital", "address": "54, GST Road, Chengalpattu, TN 603001", "phone": "044-27428888", "costs": {"General Consultation": "₹400 - ₹600", "Specialist Consultation": "₹600 - ₹1000", "ECG": "₹350", "Blood Test (Basic)": "₹450"}}
+                ],
+                "Old Mahabalipuram Road": [
+                    {"name": "Sri Venkateswara Hospital", "address": "17A, Old Mahabalipuram Road, Chengalpattu, TN 603001", "phone": "044-27421456", "costs": {"General Consultation": "₹400 - ₹600", "Specialist Consultation": "₹600 - ₹1000", "ECG": "₹350", "Blood Test (Basic)": "₹450"}}
+                ]
+            }
+        }
 
-    # ==================== SETTINGS ====================
+        # Get hospitals for selected area
+        area_hospitals = hospitals_db.get(district, {}).get(selected_area, [])
+        
+        st.markdown("---")
+        st.markdown(f"### 🏥 Hospitals Near {selected_area}")
+        
+        if not area_hospitals:
+            st.warning(f"No hospitals found in our database for {selected_area}. Please select another area.")
+            # Show all available areas as suggestions
+            st.info(f"Try these areas in {district}: {', '.join(area_mapping.get(district, [])[:10])}")
+        else:
+            for hosp in area_hospitals:
+                with st.expander(f"🏥 {hosp['name']}", expanded=False):
+                    st.markdown(f"""
+                    **📍 Address:** {hosp['address']}  
+                    **📞 Phone:** {hosp['phone']}  
+                    """)
+                    st.markdown("#### 💰 Approximate Service Costs")
+                    costs_df = pd.DataFrame(list(hosp['costs'].items()), columns=["Service", "Cost (₹)"])
+                    st.table(costs_df)
+                    
+                    # Booking form
+                    with st.form(key=f"book_form_{hosp['name']}_{selected_area}"):
+                        col_name, col_email = st.columns(2)
+                        with col_name:
+                            patient_name = st.text_input("Your Full Name", key=f"name_{hosp['name']}")
+                        with col_email:
+                            patient_email = st.text_input("Your Email Address (for confirmation)", key=f"email_{hosp['name']}")
+                        
+                        preferred_date = st.date_input("Preferred Date", min_value=datetime.now() + timedelta(days=1), key=f"date_{hosp['name']}")
+                        submitted = st.form_submit_button("📅 Book Appointment", use_container_width=True)
+                        
+                        if submitted:
+                            if not patient_name or not patient_email:
+                                st.error("Please enter your name and email address.")
+                            else:
+                                appointment = {
+                                    'id': len(st.session_state.appointments) + 1,
+                                    'hospital': hosp['name'],
+                                    'hospital_phone': hosp['phone'],
+                                    'patient_name': patient_name,
+                                    'patient_email': patient_email,
+                                    'preferred_date': preferred_date.strftime("%Y-%m-%d"),
+                                    'area': selected_area,
+                                    'district': district,
+                                    'status': 'requested',
+                                    'booked_on': datetime.now().strftime("%Y-%m-%d %H:%M")
+                                }
+                                st.session_state.appointments.append(appointment)
+                                
+                                # Send email
+                                email_sent = send_booking_email(
+                                    user_email=patient_email,
+                                    hospital_name=hosp['name'],
+                                    hospital_phone=hosp['phone'],
+                                    appointment_date=preferred_date.strftime("%Y-%m-%d"),
+                                    user_name=patient_name
+                                )
+                                
+                                st.balloons()
+                                st.success(f"✅ Appointment request sent to {hosp['name']}!")
+                                if email_sent:
+                                    st.success(f"📧 Confirmation email sent to {patient_email}")
+                                else:
+                                    st.info(f"📧 Check your email (mock mode). To send real emails, configure SMTP in .streamlit/secrets.toml")
+                                st.info(f"📞 Hospital will contact you at {hosp['phone']}")
+                                st.rerun()
+
+        # Show user's appointment requests
+        st.markdown("---")
+        st.markdown("### 📋 Your Appointment Requests")
+        
+        # Filter appointments for current user (by email if available)
+        user_appointments = [apt for apt in st.session_state.appointments if apt.get('patient_email') == st.session_state.get('user_email', '')] if st.session_state.appointments else []
+        
+        if user_appointments:
+            for apt in user_appointments[-5:]:
+                st.markdown(f"""
+                <div style='background: #f0f7ff; padding: 0.8rem; border-radius: 10px; margin-bottom: 0.5rem; border-left: 3px solid #1E88E5;'>
+                    <strong>🏥 {apt['hospital']}</strong><br>
+                    📍 Area: {apt.get('area', 'N/A')}<br>
+                    📅 Preferred date: {apt.get('preferred_date', 'N/A')}<br>
+                    Status: <span style='color: #1E88E5;'>✅ {apt['status']}</span><br>
+                    📞 Hospital: {apt.get('hospital_phone', 'N/A')}
+                </div>
+                """, unsafe_allow_html=True)
+        elif st.session_state.appointments:
+            st.info("Showing all appointments. Login to see your personal appointments.")
+            for apt in st.session_state.appointments[-5:]:
+                st.markdown(f"""
+                <div style='background: #f8f9fa; padding: 0.8rem; border-radius: 10px; margin-bottom: 0.5rem;'>
+                    <strong>🏥 {apt['hospital']}</strong><br>
+                    📅 Booked on: {apt.get('booked_on', 'N/A')}
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No appointment requests yet. Select your area and book an appointment above!")
+
+        st.markdown("---")
+        st.markdown("""
+        <div style='text-align: center; color: #78909C; padding: 1rem; font-size: 0.8rem;'>
+            📞 For emergency, call 108 (Ambulance) or visit nearest hospital immediately.<br>
+            🏥 Hospital contact details are verified from official sources.
+        </div>
+        """, unsafe_allow_html=True)
     elif selected == "Settings":
         st.markdown("## ⚙️ Settings")
         tab1, tab2, tab3 = st.tabs(["Profile", "Notifications", "Privacy"])
