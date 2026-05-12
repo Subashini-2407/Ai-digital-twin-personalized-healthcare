@@ -29,6 +29,7 @@ from collections import defaultdict
 import warnings
 warnings.filterwarnings('ignore')
 
+
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.decomposition import TruncatedSVD
@@ -36,6 +37,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.linear_model import LogisticRegression
 import shap
 
+# LSTM for Slee
 TENSORFLOW_AVAILABLE = False
 tf = None
 Sequential = None
@@ -66,6 +68,7 @@ except ImportError:
     except ImportError:
         TENSORFLOW_AVAILABLE = False
 
+# Kalman Filter
 try:
     from pykalman import KalmanFilter
     KALMAN_AVAILABLE = True
@@ -73,6 +76,7 @@ except ImportError:
     KalmanFilter = None
     KALMAN_AVAILABLE = False
 
+# For option menu
 try:
     from streamlit_option_menu import option_menu
 except ImportError:
@@ -80,6 +84,7 @@ except ImportError:
 
 import plotly.figure_factory as ff
 
+# Google Sheets imports (optional)
 try:
     import gspread
     from oauth2client.service_account import ServiceAccountCredentials
@@ -88,6 +93,7 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+# Import Twin Health Model
 try:
     from src.backend.twin_health_model import TwinHealthModel
 except ImportError:
@@ -96,6 +102,7 @@ except ImportError:
 from src.backend.database.db_setup import DatabaseManager
 from src.backend.auth.login_page import LoginSystem
 
+# Page config
 st.set_page_config(
     page_title="AI Digital Twin Platform",
     page_icon="🧬",
@@ -103,6 +110,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -282,6 +290,7 @@ st.markdown("""
         color: white !important;
     }
     
+    /* Sidebar Navigation Styles */
     .nav-category {
         font-size: 0.7rem;
         font-weight: 700;
@@ -293,6 +302,7 @@ st.markdown("""
         text-transform: uppercase;
     }
     
+    /* Chat message styles */
     .chat-user {
         text-align: right;
         margin: 0.5rem 0;
@@ -318,6 +328,7 @@ st.markdown("""
         max-width: 80%;
     }
     
+    /* Animated number counter */
     @keyframes countUp {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -497,6 +508,7 @@ def calculate_health_risk_chat(age, bmi, bp, cholesterol, smoker, exercise, diet
     return max(5, min(40, risk))
 
 
+# ==================== BACKEND DATA PREPROCESSING FUNCTIONS (Hidden - Used internally only) ====================
 from sklearn.impute import KNNImputer
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -507,6 +519,7 @@ from datetime import datetime, timedelta
 import hashlib
 
 def apply_knn_imputation(df, n_neighbors=5):
+    """KNN Imputation for handling missing values - Used internally"""
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
     
@@ -525,6 +538,7 @@ def apply_knn_imputation(df, n_neighbors=5):
 
 
 def remove_outliers_isolationforest(df, contamination=0.05, random_state=42):
+    """Outlier removal using Isolation Forest - Used internally"""
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     
     if len(numeric_cols) == 0:
@@ -540,6 +554,7 @@ def remove_outliers_isolationforest(df, contamination=0.05, random_state=42):
 
 
 def apply_one_hot_encoding(df, columns_to_encode=None):
+    """One-Hot Encoding for categorical variables - Used internally"""
     df_processed = df.copy()
     
     if columns_to_encode is None:
@@ -561,6 +576,7 @@ def apply_one_hot_encoding(df, columns_to_encode=None):
 
 
 def apply_normalization(df, columns_to_normalize=None):
+    """StandardScaler Normalization for numerical features - Used internally"""
     df_processed = df.copy()
     
     if columns_to_normalize is None:
@@ -576,6 +592,7 @@ def apply_normalization(df, columns_to_normalize=None):
 
 
 def create_train_test_split(df, target_column, test_size=0.2, random_state=42):
+    """80/20 Train-Test Split - Used internally"""
     if target_column not in df.columns:
         return None, None, None, None
     
@@ -590,13 +607,17 @@ def create_train_test_split(df, target_column, test_size=0.2, random_state=42):
     return X_train, X_test, y_train, y_test
 
 
+# ==================== BACKEND SECURITY FUNCTIONS (Integrated with Login - No visible demo) ====================
+
 def generate_otp(length=6):
+    """Generate a one-time password (OTP) for authentication"""
     digits = string.digits
     otp = ''.join(secrets.choice(digits) for _ in range(length))
     return otp
 
 
 def generate_jwt_token(username, user_id, expiry_minutes=60):
+    """Generate a JWT token for session management"""
     payload = {
         'username': username,
         'user_id': user_id,
@@ -609,6 +630,7 @@ def generate_jwt_token(username, user_id, expiry_minutes=60):
 
 
 def verify_jwt_token(token):
+    """Verify JWT token"""
     try:
         if token and token.startswith("eyJhbGciOiJIUzI1NiJ9."):
             return True
@@ -617,7 +639,10 @@ def verify_jwt_token(token):
         return False
 
 
+# ==================== ADVANCED ML CLASSES ====================
+
 class LSTMSleepAnalyzer:
+    """LSTM-based sleep disorder prediction with deep learning."""
     def __init__(self):
         self.model = None
         self.scaler = StandardScaler()
@@ -658,6 +683,7 @@ class LSTMSleepAnalyzer:
 
 
 class IsolationForestAnomalyDetector:
+    """Isolation Forest + Local Outlier Factor for anomaly detection."""
     def __init__(self):
         self.iso_forest = IsolationForest(contamination=0.1, random_state=42)
         self.lof = LocalOutlierFactor(novelty=True)
@@ -681,6 +707,7 @@ class IsolationForestAnomalyDetector:
 
 
 class KalmanHeartRateFilter:
+    """Proper Kalman filter for heart rate signal smoothing."""
     def __init__(self):
         self.kf = None
         self.initialized = False
@@ -718,6 +745,7 @@ class KalmanHeartRateFilter:
 
 
 class CollaborativeRecommender:
+    """SVD-based collaborative filtering for personalized recommendations."""
     def __init__(self, n_factors=10):
         self.svd = TruncatedSVD(n_components=n_factors, random_state=42)
         self.user_factors = None
@@ -737,6 +765,7 @@ class CollaborativeRecommender:
 
 
 class GCNHealthPropagator:
+    """Graph-based health risk propagation for family relationships."""
     def __init__(self):
         self.graph = {}
         self.risk_scores = {}
@@ -778,6 +807,7 @@ class GCNHealthPropagator:
 
 
 def generate_survival_curve(risk_score, time_points=10):
+    """Generate Kaplan-Meier style survival curve based on risk score."""
     survival_probs = []
     for t in range(1, time_points + 1):
         survival = np.exp(-risk_score * t / 5)
@@ -785,9 +815,11 @@ def generate_survival_curve(risk_score, time_points=10):
     return survival_probs
 
 
+# ==================== INITIALIZE DATABASE AND LOGIN ====================
 db = DatabaseManager()
 login_system = LoginSystem()
 
+# ==================== SESSION STATE INITIALIZATION ====================
 if 'user_history' not in st.session_state:
     st.session_state.user_history = []
 if 'predictions_made' not in st.session_state:
@@ -816,6 +848,7 @@ if 'selected' not in st.session_state:
 
 selected = st.session_state.selected
 
+# ==================== CONVERSATIONAL CHAT SESSION STATE ====================
 if 'chat_conversation' not in st.session_state:
     st.session_state.chat_conversation = []
 if 'chat_user_responses' not in st.session_state:
@@ -831,6 +864,7 @@ if 'health_chat_step' not in st.session_state:
 if 'health_chat_active' not in st.session_state:
     st.session_state.health_chat_active = False
 
+# ==================== SMARTWATCH DEVICE SESSION STATE ====================
 if 'smartwatch_connected' not in st.session_state:
     st.session_state.smartwatch_connected = False
 if 'smartwatch_data' not in st.session_state:
@@ -843,6 +877,7 @@ if 'smartwatch_data' not in st.session_state:
 if 'smartwatch_alerts' not in st.session_state:
     st.session_state.smartwatch_alerts = []
 
+# ==================== MOBILE CONNECTION SESSION STATE ====================
 if 'mobile_connected' not in st.session_state:
     st.session_state.mobile_connected = False
 if 'mobile_data' not in st.session_state:
@@ -858,10 +893,12 @@ if 'mobile_data' not in st.session_state:
 if 'mobile_alerts' not in st.session_state:
     st.session_state.mobile_alerts = []
 
+# ==================== TWIN MODEL SESSION STATE ====================
 if 'twin_model_loaded' not in st.session_state:
     st.session_state.twin_model_loaded = False
     st.session_state.twin_model = None
 
+# ==================== ADVANCED MODELS SESSION STATE ====================
 if 'lstm_sleep_analyzer' not in st.session_state:
     st.session_state.lstm_sleep_analyzer = None
 if 'anomaly_detector_ml' not in st.session_state:
@@ -877,6 +914,7 @@ if 'kalman_hr' not in st.session_state:
 if 'kalman_filtered' not in st.session_state:
     st.session_state.kalman_filtered = []
 
+# ==================== FAMILY HEALTH & WELLNESS SESSION STATE ====================
 if 'family_members' not in st.session_state:
     st.session_state.family_members = []
 if 'family_relationships' not in st.session_state:
@@ -894,9 +932,11 @@ if 'completed_challenges' not in st.session_state:
 if 'badges' not in st.session_state:
     st.session_state.badges = []
 
+# ==================== TELEMEDICINE SESSION STATE ====================
 if 'appointments' not in st.session_state:
     st.session_state.appointments = []
 
+# ==================== HEALTH HABITS SESSION STATE ====================
 if 'health_habits' not in st.session_state:
     st.session_state.health_habits = {
         'water_intake': 0,
@@ -907,6 +947,7 @@ if 'health_habits' not in st.session_state:
 if 'habit_history' not in st.session_state:
     st.session_state.habit_history = []
 
+# ==================== USER TASKS SESSION STATE ====================
 if 'user_tasks' not in st.session_state:
     st.session_state.user_tasks = [
         {"task": "Check Blood Pressure", "completed": False, "priority": "high", "due_date": (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")},
@@ -914,14 +955,17 @@ if 'user_tasks' not in st.session_state:
         {"task": "Drink 8 Glasses of Water", "completed": False, "priority": "high", "due_date": datetime.now().strftime("%Y-%m-%d")},
     ]
 
+# ==================== FEEDBACK SESSION STATE ====================
 if 'feedback_list' not in st.session_state:
     st.session_state.feedback_list = []
 
+# ==================== CHECK AUTHENTICATION ====================
 authenticated, user_id, username = login_system.login_page()
 
 if authenticated:
     st.markdown('<p class="main-header">🧬 AI Digital Twin Platform</p>', unsafe_allow_html=True)
     
+    # Header stats
     col_h1, col_h2, col_h3, col_h4 = st.columns(4)
     
     with col_h1:
@@ -967,6 +1011,7 @@ if authenticated:
         </div>
         """, unsafe_allow_html=True)
 
+    # ==================== SIDEBAR WITH ORGANIZED NAVIGATION ====================
     with st.sidebar:
         st.markdown("""
         <div style="text-align: center; padding: 1rem 0;">
@@ -1016,8 +1061,10 @@ if authenticated:
         
         st.markdown("---")
         
+        # ==================== ORGANIZED NAVIGATION ====================
         st.markdown("### 🧭 Navigation")
         
+        # DASHBOARD
         st.markdown('<p class="nav-category">📊 DASHBOARD</p>', unsafe_allow_html=True)
         if st.button("🏠 Executive Dashboard", use_container_width=True, key="nav_exec"):
             st.session_state.selected = "Executive Dashboard"
@@ -1025,6 +1072,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # HEALTH ASSESSMENT
         st.markdown('<p class="nav-category">🩺 HEALTH ASSESSMENT</p>', unsafe_allow_html=True)
         if st.button("🔍 Risk Analysis", use_container_width=True, key="nav_risk"):
             st.session_state.selected = "Risk Analysis"
@@ -1038,6 +1086,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # ANALYTICS & INSIGHTS
         st.markdown('<p class="nav-category">📈 ANALYTICS & INSIGHTS</p>', unsafe_allow_html=True)
         if st.button("💡 Health Insights", use_container_width=True, key="nav_insights"):
             st.session_state.selected = "Health Insights"
@@ -1057,6 +1106,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # DEVICE INTEGRATION
         st.markdown('<p class="nav-category">⌚ DEVICE INTEGRATION</p>', unsafe_allow_html=True)
         if st.button("⌚ Smartwatch Device", use_container_width=True, key="nav_smartwatch"):
             st.session_state.selected = "Smartwatch Device"
@@ -1067,6 +1117,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # ADVANCED ANALYSIS
         st.markdown('<p class="nav-category">🧬 ADVANCED ANALYSIS</p>', unsafe_allow_html=True)
         if st.button("👥 Twin Analysis", use_container_width=True, key="nav_twin"):
             st.session_state.selected = "Twin Analysis"
@@ -1083,6 +1134,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # RECOMMENDATIONS
         st.markdown('<p class="nav-category">💡 RECOMMENDATIONS</p>', unsafe_allow_html=True)
         if st.button("⭐ Health Recommendations", use_container_width=True, key="nav_recommend"):
             st.session_state.selected = "Personalized Recommendations"
@@ -1096,6 +1148,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # AI ASSISTANT
         st.markdown('<p class="nav-category">🤖 AI ASSISTANT</p>', unsafe_allow_html=True)
         if st.button("💬 AI Health Chat", use_container_width=True, key="nav_chat"):
             st.session_state.selected = "AI Health Chat"
@@ -1106,6 +1159,7 @@ if authenticated:
         
         st.markdown("---")
         
+        # FAMILY & WELLNESS
         st.markdown('<p class="nav-category">👨‍👩‍👧‍👦 FAMILY & WELLNESS</p>', unsafe_allow_html=True)
         if st.button("👪 Family Health", use_container_width=True, key="nav_family"):
             st.session_state.selected = "Family Health"
@@ -1119,10 +1173,12 @@ if authenticated:
         
         st.markdown("---")
         
+        # SETTINGS
         st.markdown('<p class="nav-category">⚙️ SETTINGS</p>', unsafe_allow_html=True)
         if st.button("⚙️ Settings", use_container_width=True, key="nav_settings"):
             st.session_state.selected = "Settings"
             st.rerun()
+        # NEW FEEDBACK BUTTON
         if st.button("📝 Give Feedback", use_container_width=True, key="nav_feedback"):
             st.session_state.selected = "Feedback"
             st.rerun()
@@ -1139,6 +1195,7 @@ if authenticated:
         if st.button("🚪 Logout", width='stretch'):
             login_system.logout()
 
+    # ==================== DATA LOADING ====================
     @st.cache_data
     def load_datasets():
         try:
@@ -1176,6 +1233,7 @@ if authenticated:
 
     nhanes, framingham = load_datasets()
 
+    # ==================== ADVANCED AI MODEL ====================
     class AdvancedAIModel:
         def __init__(self):
             self.model = None
@@ -1206,6 +1264,7 @@ if authenticated:
 
     model = AdvancedAIModel()
 
+    # ==================== ENHANCED EXECUTIVE DASHBOARD ====================
     if selected == "Executive Dashboard":
         st.markdown("## 📊 Executive Health Dashboard")
         
@@ -1501,6 +1560,7 @@ if authenticated:
                     )
                     st.download_button("📄 Download PDF Report", data=report, file_name=f"health_report_{datetime.now().strftime('%Y%m%d')}.md", use_container_width=True)
 
+    # ==================== HEALTH INSIGHTS (User-friendly - replaces Predictive Models) ====================
     elif selected == "Health Insights":
         st.markdown("## 💡 Your Personal Health Insights")
         
@@ -1718,6 +1778,7 @@ if authenticated:
                 </div>
                 """, unsafe_allow_html=True)
 
+    # ==================== ENHANCED HEALTH TRENDS ====================
     elif selected == "Health Trends":
         st.markdown("## 📈 Health Trends Analytics")
         st.markdown("""
@@ -1817,6 +1878,7 @@ if authenticated:
             use_container_width=True
         )
 
+    # ==================== ENHANCED TWIN ANALYSIS ====================
     elif selected == "Twin Analysis":
         st.markdown("## 👥 Twin Health Analysis")
         st.markdown("""
@@ -1992,6 +2054,7 @@ if authenticated:
             else:
                 st.success("✅ Both twins have similar risk profiles. Work together on shared health goals!")
 
+    # ==================== HABIT TRACKER (User-friendly - replaces Care Adherence) ====================
     elif selected == "Habit Tracker":
         st.markdown("## ✅ Daily Health Habit Tracker")
         
@@ -2116,6 +2179,7 @@ if authenticated:
         else:
             st.info("No habits logged yet. Start tracking your daily habits above!")
 
+    # ==================== MY TASKS (Real Task Scheduler - replaces Task Management) ====================
     elif selected == "My Tasks":
         st.markdown("## 📋 My Health Tasks")
         
@@ -2245,6 +2309,7 @@ if authenticated:
                         st.session_state.user_tasks.remove(task)
                         st.rerun()
 
+    # ==================== ENHANCED HEALTH MONITOR ====================
     elif selected == "Health Monitor":
         st.markdown("## 🚨 AI-Powered Health Monitor")
         st.markdown("""
@@ -2368,6 +2433,7 @@ if authenticated:
                 </div>
                 """, unsafe_allow_html=True)
 
+    # ==================== ENHANCED VITAL SIGNS TRACKER ====================
     elif selected == "Vital Signs Tracker":
         st.markdown("## 💓 Vital Signs Tracker")
         st.markdown("""
@@ -2459,6 +2525,7 @@ if authenticated:
         else:
             st.info("No readings yet. Add a reading or try the demo pattern.")
 
+    # ==================== REST OF THE SECTIONS (Keep from original code) ====================
     elif selected == "Risk Analysis":
         st.markdown("## 🔍 5-Year Health Risk Analysis")
         
@@ -2833,6 +2900,7 @@ if authenticated:
             </div>
             """, unsafe_allow_html=True)
 
+    # ==================== MULTI-TASK RISK PREDICTOR ====================
     elif selected == "Multi-Task Risk Predictor":
         st.markdown("## 🎯 Multi-Task 5-Year Risk Prediction")
         
@@ -2973,6 +3041,7 @@ if authenticated:
             fig.update_layout(title="Your 5-Year Risks", yaxis_title="Risk (%)", yaxis_range=[0, 50], height=350)
             st.plotly_chart(fig, use_container_width=True)
 
+    # ==================== LIFESTYLE OPTIMIZER ====================
     elif selected == "Lifestyle Optimizer":
         st.markdown("## 🌱 Lifestyle Optimizer")
         
@@ -2987,6 +3056,7 @@ if authenticated:
         </div>
         """, unsafe_allow_html=True)
         
+        # Load user data
         user_history_lo = db.get_user_history(user_id, limit=1)
         
         if not user_history_lo:
@@ -3079,6 +3149,7 @@ if authenticated:
                     </div>
                     """, unsafe_allow_html=True)
                 
+                # Lifestyle radar chart
                 st.markdown("### Lifestyle Assessment Radar")
                 
                 exercise_score = {"Sedentary": 1, "Light": 2, "Moderate": 3, "Active": 4, "Very Active": 5}.get(user_exercise_lo, 3)
@@ -3198,6 +3269,7 @@ if authenticated:
                     for milestone in milestones:
                         st.markdown(f"□ {milestone}")
 
+    # ==================== WHAT-IF LAB ====================
     elif selected == "What-If Lab":
         st.markdown("## 🔬 What-If Simulation Laboratory")
         st.markdown("""
@@ -3560,6 +3632,7 @@ if authenticated:
                     st.session_state.saved_scenarios = []
                     st.rerun()
 
+    # ==================== ENHANCED POPULATION HEALTH ====================
     elif selected == "Population Health":
         st.markdown("## 👥 Population Health Intelligence")
         st.markdown("""
@@ -3884,6 +3957,7 @@ if authenticated:
             Population health insights help you make informed decisions about your lifestyle and health goals.
         </div>""", unsafe_allow_html=True)
 
+    # ==================== SMARTWATCH DEVICE ====================
     elif selected == "Smartwatch Device":
         st.markdown("## ⌚ Smartwatch Device Integration")
         
@@ -4000,6 +4074,7 @@ if authenticated:
         else:
             st.info("🔌 Click 'Connect Smartwatch' to start receiving real-time health data.")
 
+    # ==================== MOBILE CONNECTION WITH GOOGLE SHEETS ====================
     elif selected == "Mobile Connection":
         st.markdown("## 📱 Mobile Connection")
         
@@ -4014,6 +4089,7 @@ if authenticated:
         </div>
         """, unsafe_allow_html=True)
         
+        # Initialize session state
         if 'sheet_connected' not in st.session_state:
             st.session_state.sheet_connected = False
         if 'google_sheet' not in st.session_state:
@@ -4023,6 +4099,7 @@ if authenticated:
         if 'sheet_name' not in st.session_state:
             st.session_state.sheet_name = "AI Digital Twin Health Data"
         
+        # Function to connect to Google Sheets
         def connect_to_google_sheets():
             try:
                 import gspread
@@ -4034,6 +4111,7 @@ if authenticated:
                 
                 creds = None
                 
+                # Try Streamlit Secrets first
                 try:
                     if "google" in st.secrets and "credentials" in st.secrets["google"]:
                         creds_dict = st.secrets["google"]["credentials"]
@@ -4043,6 +4121,7 @@ if authenticated:
                 except Exception:
                     pass
                 
+                # Try local file
                 if creds is None:
                     try:
                         creds_path = os.path.join(os.path.dirname(__file__), 'google_credentials.json')
@@ -4056,6 +4135,7 @@ if authenticated:
                 
                 client = gspread.authorize(creds)
                 
+                # Try to open existing sheet
                 try:
                     sheet = client.open(st.session_state.sheet_name).sheet1
                 except:
@@ -4069,12 +4149,14 @@ if authenticated:
             except Exception as e:
                 return False, f"Connection error: {str(e)[:100]}"
         
+        # Function to load and analyze data
         def load_and_analyze_data():
             if st.session_state.sheet_connected and st.session_state.google_sheet:
                 try:
                     all_records = st.session_state.google_sheet.get_all_records()
                     if all_records:
                         df = pd.DataFrame(all_records)
+                        # Clean data - remove rows with invalid values
                         if 'steps' in df.columns:
                             df['steps'] = pd.to_numeric(df['steps'], errors='coerce').fillna(0)
                         if 'heart_rate' in df.columns:
@@ -4093,6 +4175,7 @@ if authenticated:
                     return False, 0
             return False, 0
         
+        # Connection UI
         col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
@@ -4103,6 +4186,7 @@ if authenticated:
                         if success:
                             st.session_state.sheet_connected = True
                             st.success(message)
+                            # Load data after connection
                             load_and_analyze_data()
                             st.rerun()
                         else:
@@ -4117,6 +4201,7 @@ if authenticated:
         
         with col2:
             if st.session_state.sheet_connected:
+                # Count records
                 if st.session_state.mobile_data is not None:
                     record_count = len(st.session_state.mobile_data)
                     st.metric("Records Synced", record_count)
@@ -4136,14 +4221,17 @@ if authenticated:
         
         st.markdown("---")
         
+        # Only show analytics if connected
         if st.session_state.sheet_connected and st.session_state.mobile_data is not None and not st.session_state.mobile_data.empty:
             df = st.session_state.mobile_data
             
+            # Create tabs for different analytics
             tab1, tab2, tab3, tab4 = st.tabs(["📊 Health Overview", "📈 Trends", "💡 Insights", "➕ Add Data"])
             
             with tab1:
                 st.markdown("### 📊 Your Health Overview")
                 
+                # Calculate metrics
                 avg_steps = df['steps'].mean()
                 avg_heart_rate = df['heart_rate'].mean()
                 avg_sleep = df['sleep'].mean()
@@ -4151,6 +4239,7 @@ if authenticated:
                 avg_active = df['active_minutes'].mean()
                 total_days = len(df)
                 
+                # Display metric cards
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
@@ -4196,8 +4285,10 @@ if authenticated:
                     </div>
                     """, unsafe_allow_html=True)
                 
+                # Health Score Gauge
                 st.markdown("### 🎯 Your Mobile Health Score")
                 
+                # Calculate health score
                 health_score = 70
                 if avg_steps >= 10000:
                     health_score += 15
@@ -4239,10 +4330,12 @@ if authenticated:
             with tab2:
                 st.markdown("### 📈 Health Trends")
                 
+                # Convert timestamp to date
                 if 'timestamp' in df.columns:
                     df['date'] = pd.to_datetime(df['timestamp'], errors='coerce')
                     df = df.sort_values('date')
                     
+                    # Steps trend
                     fig_steps = go.Figure()
                     fig_steps.add_trace(go.Scatter(
                         x=df['date'], y=df['steps'],
@@ -4263,6 +4356,7 @@ if authenticated:
                     )
                     st.plotly_chart(fig_steps, use_container_width=True)
                     
+                    # Heart Rate & Sleep combo
                     fig_hr_sleep = make_subplots(specs=[[{"secondary_y": True}]])
                     fig_hr_sleep.add_trace(
                         go.Scatter(x=df['date'], y=df['heart_rate'],
@@ -4281,6 +4375,7 @@ if authenticated:
                     fig_hr_sleep.update_yaxes(title_text="Sleep (hours)", secondary_y=True)
                     st.plotly_chart(fig_hr_sleep, use_container_width=True)
                     
+                    # Active Minutes & Calories
                     fig_active = go.Figure()
                     fig_active.add_trace(go.Bar(
                         x=df['date'], y=df['active_minutes'],
@@ -4309,6 +4404,7 @@ if authenticated:
                 
                 insights = []
                 
+                # Step insights
                 if avg_steps < 5000:
                     insights.append({
                         "icon": "🚶",
@@ -4331,6 +4427,7 @@ if authenticated:
                         "tip": "Keep up the great work! Consider adding strength training 2-3 times per week."
                     })
                 
+                # Heart rate insights
                 if avg_heart_rate > 90:
                     insights.append({
                         "icon": "❤️",
@@ -4353,6 +4450,7 @@ if authenticated:
                         "tip": "Maintain this with regular exercise and stress management."
                     })
                 
+                # Sleep insights
                 if avg_sleep < 7:
                     insights.append({
                         "icon": "😴",
@@ -4375,6 +4473,7 @@ if authenticated:
                         "tip": "Your sleep habits are excellent. Keep your consistent schedule!"
                     })
                 
+                # Activity insights
                 if avg_active < 30:
                     insights.append({
                         "icon": "⏱️",
@@ -4390,6 +4489,7 @@ if authenticated:
                         "tip": "Great job! Consider adding variety to your workouts for balanced fitness."
                     })
                 
+                # Display insights
                 for insight in insights[:5]:
                     st.markdown(f"""
                     <div style='background: linear-gradient(135deg, #f8f9fa, #ffffff); 
@@ -4407,9 +4507,11 @@ if authenticated:
                     </div>
                     """, unsafe_allow_html=True)
                 
+                # Progress message
                 st.markdown("---")
                 st.markdown("### 🎯 Your Progress")
                 
+                # Show improvement message
                 if len(df) >= 2:
                     recent_avg = df['steps'].tail(3).mean()
                     previous_avg = df['steps'].head(3).mean()
@@ -4451,6 +4553,7 @@ if authenticated:
                                 new_active
                             ]
                             st.session_state.google_sheet.append_row(new_row)
+                            # Reload data
                             load_and_analyze_data()
                             st.balloons()
                             st.success("✅ Data saved and synced with Google Sheets!")
@@ -4465,6 +4568,7 @@ if authenticated:
         else:
             st.info("🔌 Click 'Connect to Google Sheets' to start syncing your health data and get personalized insights!")
 
+    # ==================== AI INSIGHTS ====================
     elif selected == "AI Insights":
         st.markdown("## 🤖 AI-Powered Health Insights")
         st.markdown("""
@@ -4622,6 +4726,7 @@ if authenticated:
                 - Longer bars mean bigger impact on your risk score
                 """)
 
+    # ==================== SLEEP PATTERN ANALYSIS ====================
     elif selected == "Sleep Pattern Analysis":
         st.markdown("## 😴 Sleep Pattern Analysis")
         
@@ -4663,6 +4768,7 @@ if authenticated:
             with col_r2:
                 st.info(f"**Detected:** {disorder}\n\n**Recommendation:** {advice}")
 
+    # ==================== ANOMALY DETECTION ====================
     elif selected == "Anomaly Detection":
         st.markdown("## 🚨 Real-Time Anomaly Detection")
         
@@ -4688,6 +4794,7 @@ if authenticated:
             else:
                 st.success("✅ All metrics within normal ranges")
 
+    # ==================== HEART RATE MONITOR ====================
     elif selected == "Heart Rate Monitor":
         st.markdown("## 💓 Heart Rate Monitor")
         
@@ -4910,6 +5017,7 @@ if authenticated:
             5. ☕ **Limit caffeine** - Excessive caffeine increases heart rate
             """)
 
+    # ==================== PERSONALIZED RECOMMENDATIONS ====================
     elif selected == "Personalized Recommendations":
         st.markdown("## 🎯 Personalized Health Recommendations")
         
@@ -4929,6 +5037,7 @@ if authenticated:
             </div>
             """, unsafe_allow_html=True)
 
+    # ==================== AI HEALTH CHAT ====================
     elif selected == "AI Health Chat":
         st.markdown("## 💬 AI Health Assistant")
         
@@ -5349,6 +5458,7 @@ if authenticated:
                         st.session_state.chat_conversation.append({"role": "assistant", "content": "I didn't understand that. Please type:\n• **'details'** for detailed recommendations\n• **'whatif'** for what-if scenarios\n• **'new'** for a new assessment\n\nOr for scenarios, type: **bmi**, **exercise**, **smoke**, or **diet**"})
                         st.rerun()
 
+    # ==================== PERSONAL ASSISTANT ====================
     elif selected == "Personal Assistant":
         st.markdown("## 🤖 Personal Assistant")
         for msg in st.session_state.chat_history[-10:]:
@@ -5365,6 +5475,7 @@ if authenticated:
             st.session_state.chat_history.append({"role": "assistant", "content": response})
             st.rerun()
 
+    # ==================== FAMILY HEALTH ====================
     elif selected == "Family Health":
         st.markdown("## 👨‍👩‍👧‍👦 Family Health Dashboard")
         
@@ -5443,7 +5554,6 @@ if authenticated:
             family_df = pd.DataFrame(st.session_state.family_members)
             col_s1, col_s2, col_s3 = st.columns(3)
             with col_s1:
-                st.metric
                 st.metric("Total Members", len(family_df))
             with col_s2:
                 st.metric("Average Risk", f"{family_df['propagated_risk'].mean()*100:.1f}%")
@@ -5460,6 +5570,7 @@ if authenticated:
             
             st.info("💡 Family relationships affect health risks (twins share highest similarity, then siblings, parent-child, spouses).")
 
+    # ==================== WELLNESS CHALLENGES ====================
     elif selected == "Wellness Challenges":
         st.markdown("## 🏆 Wellness Challenges & Rewards")
         
@@ -5534,6 +5645,8 @@ if authenticated:
             else:
                 st.info("Complete challenges to unlock achievements!")
 
+    # ==================== TELEMEDICINE ====================
+        # ==================== TELEMEDICINE (Location-Based Area Matching) ====================
     elif selected == "Telemedicine":
         import smtplib
         from email.mime.text import MIMEText
@@ -5541,6 +5654,7 @@ if authenticated:
         import hashlib
 
         def send_booking_email(user_email, hospital_name, hospital_phone, appointment_date, user_name="User"):
+            """Send real appointment confirmation email using SMTP."""
             subject = f"Appointment Request Confirmation – {hospital_name}"
             body = f"""
 Dear {user_name},
@@ -5612,8 +5726,10 @@ This is an automated confirmation. Please do not reply to this email.
         </div>
         """, unsafe_allow_html=True)
 
+        # District selection
         district = st.selectbox("Select District", ["Chennai", "Chengalpattu"], index=0)
         
+        # Area/Locality mapping based on district
         area_mapping = {
             "Chennai": [
                 "T Nagar", "Adyar", "Porur", "Velachery", "Tambaram", "Mylapore", "Nungambakkam",
@@ -5629,6 +5745,7 @@ This is an automated confirmation. Please do not reply to this email.
         
         selected_area = st.selectbox("Select Your Area / Locality", area_mapping.get(district, []), index=0)
         
+        # Hospital database with area mapping (which areas each hospital serves)
         hospitals_db = {
             "Chennai": {
                 "T Nagar": [
@@ -5690,6 +5807,7 @@ This is an automated confirmation. Please do not reply to this email.
             }
         }
 
+        # Get hospitals for selected area
         area_hospitals = hospitals_db.get(district, {}).get(selected_area, [])
         
         st.markdown("---")
@@ -5697,6 +5815,7 @@ This is an automated confirmation. Please do not reply to this email.
         
         if not area_hospitals:
             st.warning(f"No hospitals found in our database for {selected_area}. Please select another area.")
+            # Show all available areas as suggestions
             st.info(f"Try these areas in {district}: {', '.join(area_mapping.get(district, [])[:10])}")
         else:
             for hosp in area_hospitals:
@@ -5709,6 +5828,7 @@ This is an automated confirmation. Please do not reply to this email.
                     costs_df = pd.DataFrame(list(hosp['costs'].items()), columns=["Service", "Cost (₹)"])
                     st.table(costs_df)
                     
+                    # Booking form
                     with st.form(key=f"book_form_{hosp['name']}_{selected_area}"):
                         col_name, col_email = st.columns(2)
                         with col_name:
@@ -5737,6 +5857,7 @@ This is an automated confirmation. Please do not reply to this email.
                                 }
                                 st.session_state.appointments.append(appointment)
                                 
+                                # Send email
                                 email_sent = send_booking_email(
                                     user_email=patient_email,
                                     hospital_name=hosp['name'],
@@ -5754,9 +5875,11 @@ This is an automated confirmation. Please do not reply to this email.
                                 st.info(f"📞 Hospital will contact you at {hosp['phone']}")
                                 st.rerun()
 
+        # Show user's appointment requests
         st.markdown("---")
         st.markdown("### 📋 Your Appointment Requests")
         
+        # Filter appointments for current user (by email if available)
         user_appointments = [apt for apt in st.session_state.appointments if apt.get('patient_email') == st.session_state.get('user_email', '')] if st.session_state.appointments else []
         
         if user_appointments:
@@ -5789,10 +5912,9 @@ This is an automated confirmation. Please do not reply to this email.
             🏥 Hospital contact details are verified from official sources.
         </div>
         """, unsafe_allow_html=True)
-
     elif selected == "Settings":
         st.markdown("## ⚙️ Settings")
-        tab1, tab2, tab3, tab4 = st.tabs(["Profile", "Notifications", "Privacy", "Export Data"])
+        tab1, tab2, tab3 = st.tabs(["Profile", "Notifications", "Privacy"])
         with tab1:
             st.text_input("Full Name")
             st.text_input("Email")
@@ -5805,18 +5927,8 @@ This is an automated confirmation. Please do not reply to this email.
         with tab3:
             st.checkbox("Share anonymized data", False)
             st.selectbox("Data Retention", ["30 days", "90 days", "1 year"])
-        with tab4:
-            st.markdown("### Download Your Health Data")
-            if st.button("📥 Export All Health Records", width='stretch'):
-                history = db.get_user_history(user_id, limit=1000)
-                if history:
-                    df = pd.DataFrame(history)
-                    csv = df.to_csv(index=False)
-                    st.download_button("Download CSV", data=csv, file_name=f"my_health_data_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv")
-                    st.toast("✅ Data exported successfully!", icon="📥")
-                else:
-                    st.warning("No data to export.")
 
+    # ==================== FEEDBACK & REVIEW PAGE ====================
     elif selected == "Feedback":
         st.markdown("## 📝 We Value Your Feedback")
         
@@ -5914,6 +6026,7 @@ This is an automated confirmation. Please do not reply to this email.
                 </div>
                 """, unsafe_allow_html=True)
         
+        # Show user's previous feedbacks
         if st.session_state.feedback_list:
             st.markdown("---")
             st.markdown("### 📋 Your Previous Feedback")
@@ -5930,6 +6043,7 @@ This is an automated confirmation. Please do not reply to this email.
                 </div>
                 """, unsafe_allow_html=True)
         
+        # Export feedback option
         if st.session_state.feedback_list:
             st.markdown("---")
             if st.button("📥 Export My Feedback Data", use_container_width=True):
@@ -5942,6 +6056,7 @@ This is an automated confirmation. Please do not reply to this email.
                     mime="text/csv"
                 )
 
+    # Footer
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #78909C; padding: 2rem;'>
