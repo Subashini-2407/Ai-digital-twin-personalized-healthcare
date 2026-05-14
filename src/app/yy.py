@@ -374,9 +374,6 @@ def calculate_health_score(age, bmi, bp, cholesterol, smoker, exercise, diet, sl
 
 
 def generate_health_report(user_data, predictions, history):
-    bmi_val = user_data.get('bmi', 'N/A')
-    bmi_display = f"{bmi_val:.1f}" if isinstance(bmi_val, (int, float)) else bmi_val
-
     report = f"""
     # AI Digital Twin Health Report
     Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
@@ -384,7 +381,7 @@ def generate_health_report(user_data, predictions, history):
     ## Personal Information
     - User: {st.session_state.get('username', 'N/A')}
     - Age: {user_data.get('age', 'N/A')}
-    - BMI: {bmi_display}
+    - BMI: {user_data.get('bmi', 'N/A'):.1f}
     
     ## Risk Assessment
     - Current 5-Year Risk: {predictions.get('current_risk', 0)*100:.1f}%
